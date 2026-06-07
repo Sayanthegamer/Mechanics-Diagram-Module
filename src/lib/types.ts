@@ -1,4 +1,4 @@
-export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics';
+export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids';
 
 export interface BaseConfig {
   type: DiagramType;
@@ -124,5 +124,43 @@ export interface MechanicsConfig extends BaseConfig {
   circular?: CircularParams;
 }
 
-export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig;
+// ------------------ FLUIDS (HYDROSTATICS, PASCAL, DYNAMICS) ------------------
+export interface BuoyancyParams {
+  fluidDensity: number; // kg/m^3 (e.g. 1000 for water, 800 for oil)
+  blockMass: number; // kg
+  blockVolume: number; // m^3
+  gravity: number; // m/s^2
+  showVectors: boolean;
+}
+
+export interface PascalParams {
+  area1: number; // m^2
+  area2: number; // m^2
+  force1: number; // N
+  displacement1: number; // m
+  gravity: number; // m/s^2
+}
+
+export interface FluidsConfig extends BaseConfig {
+  type: 'fluids';
+  mode: 'buoyancy' | 'pascal' | 'bernoulli' | 'viscosity';
+  buoyancy: BuoyancyParams;
+  pascal: PascalParams;
+  bernoulli: {
+    fluidDensity: number;
+    flowRate: number; // m^3/s
+    diameter1: number; // m
+    diameter2: number; // m
+  };
+  viscosity: {
+    fluidDensity: number;
+    viscosity: number; // Pa s
+    sphereRadius: number; // m
+    sphereDensity: number; // kg/m^3
+    gravity: number; // m/s^2
+  };
+}
+
+export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig;
+
 
