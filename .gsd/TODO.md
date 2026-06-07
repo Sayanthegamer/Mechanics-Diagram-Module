@@ -13,3 +13,4 @@ This file tracks outstanding feature requests, optimizations, and technical debt
 
 ## Maintenance & Refactoring
 - [ ] **RK4 Integrator**: Propose Runge-Kutta 4th order solver option for systems with heavy damping or stiff springs to reduce numerical energy drift.
+- [ ] **Panning/Scrolling**: Implement simulation space scrolling and repositioning of the view of the simulation (allow users to drag/pan the canvas viewport). `medium` — 2026-06-07
