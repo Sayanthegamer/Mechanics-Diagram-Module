@@ -207,7 +207,9 @@ export class FluidsDiagram {
         // Speed in m/s (1D along horizontal axis x)
         const speed = flowRate / area;
         
-        p.x += speed * dt;
+        // Visual multiplier of 15.0 so particles flow visibly
+        const visualSpeedMultiplier = 15.0;
+        p.x += speed * visualSpeedMultiplier * dt;
         if (p.x > 2.5) {
           p.x = -2.5;
           p.lane = Math.floor(Math.random() * 5);

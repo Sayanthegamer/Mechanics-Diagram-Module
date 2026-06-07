@@ -1322,6 +1322,8 @@ function resetSimulation() {
     waveDiagram.resetState();
   } else if (activeConfig.type === 'mechanics') {
     mechanicsDiagram.resetState();
+  } else if (activeConfig.type === 'fluids') {
+    fluidsDiagram.resetState();
   }
   drawActiveSimulation();
 }
@@ -1602,6 +1604,40 @@ function updateStatusBar() {
       statusExtra3.classList.remove('hidden');
       statusExtra3.querySelector('.status-label')!.innerHTML = 'Output F2:';
       statusExtra3.querySelector('.status-value')!.innerHTML = `${F2.toFixed(1)} N`;
+    } else if (activeConfig.mode === 'bernoulli') {
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Inlet Speed v1:';
+      const d1 = activeConfig.bernoulli.diameter1;
+      const a1 = Math.PI * (d1 / 2) * (d1 / 2);
+      const v1 = activeConfig.bernoulli.flowRate / a1;
+      statusExtra1.querySelector('.status-value')!.innerHTML = `${v1.toFixed(2)} m/s`;
+
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Throat Speed v2:';
+      const d2 = activeConfig.bernoulli.diameter2;
+      const a2 = Math.PI * (d2 / 2) * (d2 / 2);
+      const v2 = activeConfig.bernoulli.flowRate / a2;
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${v2.toFixed(2)} m/s`;
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Pressure Drop ΔP:';
+      const rho = activeConfig.bernoulli.fluidDensity;
+      const deltaP = 0.5 * rho * (v2 * v2 - v1 * v1);
+      statusExtra3.querySelector('.status-value')!.innerHTML = `${(deltaP / 1000).toFixed(1)} kPa`;
+    } else if (activeConfig.mode === 'viscosity') {
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Sphere Speed:';
+      statusExtra1.querySelector('.status-value')!.innerHTML = `${Math.abs(fluidsDiagram.sphereVy).toFixed(2)} m/s`;
+
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Terminal Speed vt:';
+      const { fluidDensity, viscosity, sphereRadius, sphereDensity, gravity } = activeConfig.viscosity;
+      const vt = (2 * sphereRadius * sphereRadius * gravity * (sphereDensity - fluidDensity)) / (9 * viscosity);
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${vt.toFixed(2)} m/s`;
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Viscosity η:';
+      statusExtra3.querySelector('.status-value')!.innerHTML = `${viscosity.toFixed(2)} Pa·s`;
     }
   }
 }
