@@ -133,7 +133,6 @@ export class FluidsDiagram {
 
       // Define container geometry
       const containerBottom = 0.2;
-      const containerHeight = 3.0;
       const fluidLevel = 2.0; // relative to containerBottom, fluid surface at y = 2.0
 
       // Block dimensions (assume a cube)
@@ -224,6 +223,9 @@ export class FluidsDiagram {
   public draw(canvas: PhysicsCanvas): void {
     if (!this.config) return;
 
+    // Use internal reference
+    this.pc = canvas;
+
     if (this.config.mode === 'buoyancy') {
       this.drawBuoyancy(canvas);
     } else if (this.config.mode === 'pascal') {
@@ -232,11 +234,11 @@ export class FluidsDiagram {
   }
 
   private drawBuoyancy(canvas: PhysicsCanvas): void {
-    const ctx = canvas.getContext();
+    const ctx = canvas.ctx;
     const { fluidDensity, blockMass, blockVolume, showVectors } = this.config.buoyancy;
 
     // 1. Draw Grid
-    canvas.drawGrid(1.0, 1.0, '#334155');
+    canvas.drawGrid(1.0);
 
     // Container geometry
     const leftX = -2.0;
@@ -248,7 +250,13 @@ export class FluidsDiagram {
     ctx.fillStyle = 'rgba(56, 189, 248, 0.25)'; // glassy sky blue
     ctx.strokeStyle = '#0284c7';
     ctx.lineWidth = 2;
-    canvas.rect(leftX, bottomY, rightX - leftX, fluidLevel - bottomY, true, true);
+    
+    const ptTopLeft = canvas.toScreen(leftX, fluidLevel);
+    const ptBottomRight = canvas.toScreen(rightX, bottomY);
+    ctx.beginPath();
+    ctx.rect(ptTopLeft.x, ptTopLeft.y, ptBottomRight.x - ptTopLeft.x, ptBottomRight.y - ptTopLeft.y);
+    ctx.fill();
+    ctx.stroke();
 
     // Draw wavy lines at fluid surface
     ctx.beginPath();
@@ -269,28 +277,22 @@ export class FluidsDiagram {
     // 3. Draw outer glass container walls
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.lineWidth = 4;
-    canvas.line(leftX, 3.5, leftX, bottomY);
-    canvas.line(leftX, bottomY, rightX, bottomY);
-    canvas.line(rightX, bottomY, rightX, 3.5);
+    const wallLeftTop = canvas.toScreen(leftX, 3.5);
+    const wallLeftBottom = canvas.toScreen(leftX, bottomY);
+    const wallRightBottom = canvas.toScreen(rightX, bottomY);
+    const wallRightTop = canvas.toScreen(rightX, 3.5);
+
+    ctx.beginPath();
+    ctx.moveTo(wallLeftTop.x, wallLeftTop.y);
+    ctx.lineTo(wallLeftBottom.x, wallLeftBottom.y);
+    ctx.lineTo(wallRightBottom.x, wallRightBottom.y);
+    ctx.lineTo(wallRightTop.x, wallRightTop.y);
+    ctx.stroke();
 
     // 4. Draw Block
     const blockHeight = Math.pow(blockVolume, 1/3);
     const blockWidth = blockHeight;
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.8)'; // premium amber block
-    ctx.strokeStyle = '#d97706';
-    ctx.lineWidth = 3;
-    
-    const blockLeftX = this.blockX - blockWidth / 2;
-    const blockBottomY = this.blockY - blockHeight / 2;
-    canvas.rect(blockLeftX, blockBottomY, blockWidth, blockHeight, true, true);
-
-    // Label block mass
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const textPt = canvas.toScreen(this.blockX, this.blockY);
-    ctx.fillText(`${blockMass}kg`, textPt.x, textPt.y);
+    canvas.drawBlock(this.blockX, this.blockY, blockWidth, blockHeight, 0, 'rgba(245, 158, 11, 0.8)', `${blockMass} kg`);
 
     // 5. Draw Buoyancy and Gravity vectors
     if (showVectors) {
@@ -310,31 +312,33 @@ export class FluidsDiagram {
       const scale = 0.035; // Newton to meters
       
       // Draw Gravity vector (from center downwards)
-      canvas.drawVector(
-        { x: this.blockX, y: this.blockY },
-        { x: 0, y: -Fg * scale },
+      canvas.drawArrow(
+        this.blockX, this.blockY,
+        this.blockX, this.blockY - Fg * scale,
         '#ef4444',
-        'Fg',
-        2.5
+        'Fg'
       );
 
       // Draw Buoyancy vector (from center upwards)
       if (Fb > 0.1) {
-        canvas.drawVector(
-          { x: this.blockX, y: this.blockY },
-          { x: 0, y: Fb * scale },
+        canvas.drawArrow(
+          this.blockX, this.blockY,
+          this.blockX, this.blockY + Fb * scale,
           '#06b6d4',
-          'Fb',
-          2.5
+          'Fb'
         );
       }
     }
 
     // 6. Draw Hydrostatic Pressure Probe
+    const probePt = canvas.toScreen(this.probeX, this.probeY);
     ctx.fillStyle = '#8b5cf6'; // premium violet probe sensor tip
     ctx.strokeStyle = '#7c3aed';
     ctx.lineWidth = 2;
-    canvas.circle(this.probeX, this.probeY, 0.12, true, true);
+    ctx.beginPath();
+    ctx.arc(probePt.x, probePt.y, 6, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
 
     // Draw dotted sensor cord to the HUD container
     ctx.beginPath();
@@ -353,26 +357,32 @@ export class FluidsDiagram {
     const pKpa = (pressure / 1000).toFixed(2);
     const pAtm = (pressure / 101325).toFixed(3);
 
+    const hudLeft = canvas.toScreen(2.0, 3.5);
+    const hudWidth = 1.8 * canvas.scale;
+    const hudHeight = 0.9 * canvas.scale;
+
     ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
     ctx.strokeStyle = '#8b5cf6';
     ctx.lineWidth = 2;
-    canvas.rect(2.0, 2.7, 1.8, 0.9, true, true);
+    ctx.beginPath();
+    ctx.rect(hudLeft.x, hudLeft.y, hudWidth, hudHeight);
+    ctx.fill();
+    ctx.stroke();
 
     ctx.fillStyle = '#ffffff';
     ctx.font = '11px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    const textHUD = canvas.toScreen(2.1, 3.5);
-    ctx.fillText(`P_gauge: ${((pressure - (this.showAtmosphericPressure ? 101325 : 0)) / 1000).toFixed(1)} kPa`, textHUD.x, textHUD.y + 4);
-    ctx.fillText(`P_total: ${pKpa} kPa`, textHUD.x, textHUD.y + 18);
-    ctx.fillText(`P_total: ${pAtm} atm`, textHUD.x, textHUD.y + 32);
+    ctx.fillText(`P_gauge: ${((pressure - (this.showAtmosphericPressure ? 101325 : 0)) / 1000).toFixed(1)} kPa`, hudLeft.x + 8, hudLeft.y + 8);
+    ctx.fillText(`P_total: ${pKpa} kPa`, hudLeft.x + 8, hudLeft.y + 24);
+    ctx.fillText(`P_total: ${pAtm} atm`, hudLeft.x + 8, hudLeft.y + 40);
   }
 
   private drawPascal(canvas: PhysicsCanvas): void {
-    const ctx = canvas.getContext();
+    const ctx = canvas.ctx;
     const { area1, area2, force1 } = this.config.pascal;
 
-    canvas.drawGrid(1.0, 1.0, '#334155');
+    canvas.drawGrid(1.0);
 
     // Cylinder positions
     const leftX = -2.0;
@@ -422,25 +432,46 @@ export class FluidsDiagram {
     ctx.lineWidth = 4;
     
     // Left cylinder walls
-    canvas.line(leftL, 3.0, leftL, 0.2);
-    canvas.line(leftR, 3.0, leftR, 0.4);
+    const ptWallLeftL1 = canvas.toScreen(leftL, 3.0);
+    const ptWallLeftL2 = canvas.toScreen(leftL, 0.2);
+    const ptWallLeftR1 = canvas.toScreen(leftR, 3.0);
+    const ptWallLeftR2 = canvas.toScreen(leftR, 0.4);
+    ctx.beginPath();
+    ctx.moveTo(ptWallLeftL1.x, ptWallLeftL1.y);
+    ctx.lineTo(ptWallLeftL2.x, ptWallLeftL2.y);
+    ctx.moveTo(ptWallLeftR1.x, ptWallLeftR1.y);
+    ctx.lineTo(ptWallLeftR2.x, ptWallLeftR2.y);
+    ctx.stroke();
 
     // Connecting pipe wall
-    canvas.line(leftR, 0.4, rightL, 0.4);
-    canvas.line(leftL, 0.2, rightR, 0.2);
+    const ptPipeBottom1 = canvas.toScreen(leftR, 0.4);
+    const ptPipeBottom2 = canvas.toScreen(rightL, 0.4);
+    const ptPipeTop1 = canvas.toScreen(leftL, 0.2);
+    const ptPipeTop2 = canvas.toScreen(rightR, 0.2);
+    ctx.beginPath();
+    ctx.moveTo(ptPipeBottom1.x, ptPipeBottom1.y);
+    ctx.lineTo(ptPipeBottom2.x, ptPipeBottom2.y);
+    ctx.moveTo(ptPipeTop1.x, ptPipeTop1.y);
+    ctx.lineTo(ptPipeTop2.x, ptPipeTop2.y);
+    ctx.stroke();
 
     // Right cylinder walls
-    canvas.line(rightL, 3.0, rightL, 0.4);
-    canvas.line(rightR, 3.0, rightR, 0.2);
+    const ptWallRightL1 = canvas.toScreen(rightL, 3.0);
+    const ptWallRightL2 = canvas.toScreen(rightL, 0.4);
+    const ptWallRightR1 = canvas.toScreen(rightR, 3.0);
+    const ptWallRightR2 = canvas.toScreen(rightR, 0.2);
+    ctx.beginPath();
+    ctx.moveTo(ptWallRightL1.x, ptWallRightL1.y);
+    ctx.lineTo(ptWallRightL2.x, ptWallRightL2.y);
+    ctx.moveTo(ptWallRightR1.x, ptWallRightR1.y);
+    ctx.lineTo(ptWallRightR2.x, ptWallRightR2.y);
+    ctx.stroke();
 
     // Draw Left Piston block
-    ctx.fillStyle = '#475569';
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 3;
-    canvas.rect(leftL + 0.05, yLeft - 0.15, 1.3, 0.15, true, true);
+    canvas.drawBlock(leftX, yLeft - 0.075, 1.4, 0.15, 0, '#475569');
 
     // Draw Right Piston block
-    canvas.rect(rightL + 0.05, yRight - 0.15, 2.1, 0.15, true, true);
+    canvas.drawBlock(rightX, yRight - 0.075, 2.2, 0.15, 0, '#475569');
 
     // Force vectors
     const F1 = force1;
@@ -448,21 +479,19 @@ export class FluidsDiagram {
     const scale = 0.04;
 
     // Force vector on Left Piston (acting down)
-    canvas.drawVector(
-      { x: leftX, y: yLeft + 0.5 },
-      { x: 0, y: -F1 * scale },
+    canvas.drawArrow(
+      leftX, yLeft + 0.5,
+      leftX, yLeft + 0.5 - F1 * scale,
       '#ef4444',
-      `F1: ${F1}N`,
-      2
+      `F1: ${F1}N`
     );
 
     // Force vector on Right Piston (acting up)
-    canvas.drawVector(
-      { x: rightX, y: yRight },
-      { x: 0, y: F2 * scale },
+    canvas.drawArrow(
+      rightX, yRight,
+      rightX, yRight + F2 * scale,
       '#3b82f6',
-      `F2: ${F2.toFixed(1)}N`,
-      2
+      `F2: ${F2.toFixed(1)}N`
     );
 
     // Draw labels indicating areas
