@@ -55,6 +55,9 @@ export class MechanicsDiagram {
   private sparks: SparkParticle[] = [];
   private sparkDuration: number = 0.6; // seconds
 
+  // Circular motion state
+  public circularAngle: number = 0; // angle of bob in radians
+
   constructor(pc: PhysicsCanvas) {
     this.pc = pc;
   }
@@ -71,7 +74,7 @@ export class MechanicsDiagram {
     this.projectileResetTimer = 0;
     this.sparks = [];
 
-    const { mode, projectile, collision } = this.config;
+    const { mode, projectile, collision, circular } = this.config;
 
     if (mode === 'projectile') {
       this.px = -4.0; // start on the left
@@ -114,6 +117,9 @@ export class MechanicsDiagram {
         this.cvxB = collision.velocityB * Math.cos(radB);
         this.cvyB = collision.velocityB * Math.sin(radB);
       }
+    } else if (mode === 'circular' && circular) {
+      // Start at the bottom for vertical (angle = -Math.PI / 2), and 0 for horizontal
+      this.circularAngle = circular.isVertical ? -Math.PI / 2 : 0;
     }
   }
 
@@ -121,7 +127,7 @@ export class MechanicsDiagram {
   public step(dt: number): void {
     if (!this.config) return;
 
-    const { mode, projectile, pulley, collision } = this.config;
+    const { mode, projectile, pulley, collision, circular } = this.config;
 
     if (mode === 'projectile') {
       this.stepProjectile(dt, projectile);
@@ -129,6 +135,8 @@ export class MechanicsDiagram {
       this.stepPulley(dt, pulley);
     } else if (mode === 'collision') {
       this.stepCollision(dt, collision);
+    } else if (mode === 'circular' && circular) {
+      this.stepCircular(dt, circular);
     }
 
     this.t += dt;
@@ -396,6 +404,10 @@ export class MechanicsDiagram {
       this.pc.originX = this.pc.canvas.clientWidth / 2;
       this.pc.originY = this.pc.canvas.clientHeight / 2;
       this.drawCollisions();
+    } else if (mode === 'circular') {
+      this.pc.originX = this.pc.canvas.clientWidth / 2;
+      this.pc.originY = this.pc.canvas.clientHeight / 2;
+      this.drawCircular();
     }
   }
 
@@ -730,6 +742,147 @@ export class MechanicsDiagram {
         this.pc.ctx.fill();
       }
       this.pc.ctx.restore();
+    }
+  }
+
+  // Circular motion step update
+  private stepCircular(dt: number, params: any): void {
+    const { radius, speed, gravity, isVertical } = params;
+    const r = radius;
+
+    if (isVertical) {
+      // Speed at bottom v0
+      const v0 = speed;
+      // Current angle relative to bottom (circularAngle measures standard angle)
+      // Since bottom is -Math.PI / 2, the angle relative to bottom is theta = circularAngle - (-Math.PI / 2) = circularAngle + Math.PI / 2
+      const theta = this.circularAngle + Math.PI / 2;
+      const h = r * (1 - Math.cos(theta));
+      
+      const vSq = v0 * v0 - 2 * gravity * h;
+      if (vSq > 0) {
+        const v = Math.sqrt(vSq);
+        const omega = v / r;
+        this.circularAngle += omega * dt;
+      } else {
+        // Not enough energy to continue full loop: reverse direction (act like pendulum)
+        // We will just step circularAngle as a pendulum approximation or let it stop
+        this.circularAngle += (v0 / r) * dt; // Fallback to avoid complete freeze
+      }
+    } else {
+      // Horizontal uniform circular motion
+      const omega = speed / r;
+      this.circularAngle += omega * dt;
+    }
+
+    // Keep angle within 0..2*PI
+    this.circularAngle = this.circularAngle % (Math.PI * 2);
+  }
+
+  // Circular motion draw renderer
+  private drawCircular(): void {
+    const params = this.config.circular;
+    if (!params) return;
+    const { radius, speed, gravity, mass, isVertical } = params;
+
+    const r = radius;
+    const g = gravity;
+    const m = mass;
+
+    // Draw central pivot
+    const sPivot = this.pc.toScreen(0, 0);
+    this.pc.ctx.save();
+    this.pc.ctx.fillStyle = this.pc.theme === 'dark' ? '#fff' : '#000';
+    this.pc.ctx.beginPath();
+    this.pc.ctx.arc(sPivot.x, sPivot.y, 6, 0, 2 * Math.PI);
+    this.pc.ctx.fill();
+    this.pc.ctx.restore();
+
+    // Bob position
+    const bx = r * Math.cos(this.circularAngle);
+    const by = r * Math.sin(this.circularAngle);
+    const sBob = this.pc.toScreen(bx, by);
+
+    // Draw circular path (dashed grey line)
+    this.pc.ctx.save();
+    this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)';
+    this.pc.ctx.lineWidth = 1.5;
+    this.pc.ctx.setLineDash([4, 4]);
+    this.pc.ctx.beginPath();
+    this.pc.ctx.arc(sPivot.x, sPivot.y, r * this.pc.scale, 0, 2 * Math.PI);
+    this.pc.ctx.stroke();
+    this.pc.ctx.restore();
+
+    // Draw string/rod from pivot to bob
+    this.pc.ctx.save();
+    this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? '#aaa' : '#555';
+    this.pc.ctx.lineWidth = 2.0;
+    this.pc.ctx.beginPath();
+    this.pc.ctx.moveTo(sPivot.x, sPivot.y);
+    this.pc.ctx.lineTo(sBob.x, sBob.y);
+    this.pc.ctx.stroke();
+    this.pc.ctx.restore();
+
+    // Draw bob circle
+    this.pc.ctx.save();
+    this.pc.ctx.fillStyle = '#f59e0b';
+    this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? '#fff' : '#000';
+    this.pc.ctx.lineWidth = 2;
+    this.pc.ctx.beginPath();
+    this.pc.ctx.arc(sBob.x, sBob.y, 14, 0, 2 * Math.PI);
+    this.pc.ctx.fill();
+    this.pc.ctx.stroke();
+
+    // Label bob mass
+    this.pc.ctx.fillStyle = '#000';
+    this.pc.ctx.font = 'bold 9px Outfit, sans-serif';
+    this.pc.ctx.textAlign = 'center';
+    this.pc.ctx.textBaseline = 'middle';
+    this.pc.ctx.fillText(`${m}kg`, sBob.x, sBob.y);
+    this.pc.ctx.restore();
+
+    // Calculate forces
+    const Fg = m * g;
+    // Current angle relative to bottom
+    const theta = this.circularAngle + Math.PI / 2;
+    let v = speed;
+    let T = 0;
+
+    if (isVertical) {
+      const h = r * (1 - Math.cos(theta));
+      const vSq = speed * speed - 2 * g * h;
+      v = vSq > 0 ? Math.sqrt(vSq) : 0;
+      T = (m * v * v) / r + m * g * Math.cos(theta);
+    } else {
+      T = (m * speed * speed) / r;
+    }
+
+    const vecScale = 0.08;
+
+    // Draw Force Vectors from Bob COM
+    // 1. Gravity straight down
+    this.pc.drawArrow(bx, by, bx, by - Fg * vecScale, '#ef4444', `Fg = ${Fg.toFixed(1)}N`, { headSize: 6, labelOffset: -12 });
+
+    // 2. Tension: points inward along string to origin (0, 0)
+    if (Math.abs(T) > 0.1) {
+      const tensionDirectionX = -Math.cos(this.circularAngle);
+      const tensionDirectionY = -Math.sin(this.circularAngle);
+      this.pc.drawArrow(
+        bx, by,
+        bx + tensionDirectionX * T * vecScale, by + tensionDirectionY * T * vecScale,
+        '#a855f7', `T = ${T.toFixed(1)}N`, { headSize: 6, labelOffset: 15 }
+      );
+    }
+
+    // 3. Velocity: tangent to circular path (points counter-clockwise: -sin(angle), cos(angle))
+    if (v > 0.1) {
+      const tangentX = -Math.sin(this.circularAngle);
+      const tangentY = Math.cos(this.circularAngle);
+      const velScale = 0.3;
+      this.pc.drawArrow(
+        bx, by,
+        bx + tangentX * v * velScale, by + tangentY * v * velScale,
+        '#22d3ee', `v = ${v.toFixed(1)}m/s`, { headSize: 6, labelOffset: 12 }
+      );
     }
   }
 }
