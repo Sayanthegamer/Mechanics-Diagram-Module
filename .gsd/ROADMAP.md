@@ -13,7 +13,7 @@
 ## Phases
 
 ### Phase 5: Hydrostatics (Buoyancy, Pressure, and Pascal)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Build the buoyancy and hydrostatic pressure solver, including block floatation, movable pressure probes, and the hydraulic press.
 
 ### Phase 6: Hydrodynamics (Bernoulli Flow & Viscosity)
