@@ -2,11 +2,11 @@
 
 ## Current Position
 - **Milestone**: v2.0 (Fluid Dynamics)
-- **Phase**: Phase 5 (Verified)
-- **Status**: ✅ Phase Complete
+- **Phase**: Phase 6 (Not Started)
+- **Status**: Planning complete
 
 ## Milestone Summary
-Phase 5 (Hydrostatics: Buoyancy, Pressure, and Pascal Piston Press) implemented, integrated, and verified successfully.
+Milestone v2.0 introduces interactive Fluid Dynamics and Hydrostatics simulations into the coordinate canvas system.
 
 ## Next Steps
-1. Create execution plan for Phase 6 using `/plan 6`.
+1. /execute 6
