@@ -9,7 +9,6 @@ export interface FluidsState {
 }
 
 export class FluidsDiagram {
-  private pc: PhysicsCanvas;
   private config!: FluidsConfig;
 
   // Physical State Variables
@@ -35,8 +34,7 @@ export class FluidsDiagram {
   // Flag for atmospheric pressure toggle
   public showAtmosphericPressure: boolean = true;
 
-  constructor(pc: PhysicsCanvas) {
-    this.pc = pc;
+  constructor(_pc: PhysicsCanvas) {
     this.resetState();
   }
 
@@ -222,9 +220,6 @@ export class FluidsDiagram {
 
   public draw(canvas: PhysicsCanvas): void {
     if (!this.config) return;
-
-    // Use internal reference
-    this.pc = canvas;
 
     if (this.config.mode === 'buoyancy') {
       this.drawBuoyancy(canvas);
