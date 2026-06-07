@@ -279,6 +279,34 @@ const PRESETS: Record<string, PhysicsConfig> = {
       angleB: 150, // angle of approach B
       restitution: 0.6 // inelastic bounce
     }
+  },
+  'mech-circular-horizontal': {
+    type: 'mechanics',
+    mode: 'circular',
+    projectile: { velocity: 15, angle: 45, mass: 1, gravity: 9.8, dragCoeff: 0 },
+    pulley: { type: 'atwood', massA: 2, massB: 3, angle: 30, mu: 0.1, gravity: 9.8 },
+    collision: { dimension: '1d', massA: 2, massB: 3, velocityA: 2, velocityB: -1, angleA: 0, angleB: 0, restitution: 0.8 },
+    circular: {
+      radius: 2.2,
+      speed: 4.5,
+      mass: 1.5,
+      gravity: 9.8,
+      isVertical: false
+    }
+  },
+  'mech-circular-vertical': {
+    type: 'mechanics',
+    mode: 'circular',
+    projectile: { velocity: 15, angle: 45, mass: 1, gravity: 9.8, dragCoeff: 0 },
+    pulley: { type: 'atwood', massA: 2, massB: 3, angle: 30, mu: 0.1, gravity: 9.8 },
+    collision: { dimension: '1d', massA: 2, massB: 3, velocityA: 2, velocityB: -1, angleA: 0, angleB: 0, restitution: 0.8 },
+    circular: {
+      radius: 2.0,
+      speed: 7.0,
+      mass: 2.0,
+      gravity: 9.8,
+      isVertical: true
+    }
   }
 };
 
@@ -612,17 +640,22 @@ function renderSliders(config: PhysicsConfig) {
           mechanicsDiagram.setConfig(config);
         });
       }
-    } else if (config.mode === 'collision') {
-      addSlider('Mass Sphere A (kg)', 1, 8, 0.5, config.collision.massA, (v) => {
-        config.collision.massA = v;
+    } else if (config.mode === 'circular' && config.circular) {
+      const circ = config.circular;
+      addSlider('Circle Radius (m)', 1.0, 3.5, 0.1, circ.radius, (v) => {
+        circ.radius = v;
         mechanicsDiagram.setConfig(config);
       });
-      addSlider('Mass Sphere B (kg)', 1, 8, 0.5, config.collision.massB, (v) => {
-        config.collision.massB = v;
+      addSlider('Bob Speed (m/s)', 1.0, 12.0, 0.2, circ.speed, (v) => {
+        circ.speed = v;
         mechanicsDiagram.setConfig(config);
       });
-      addSlider('Bounce Restitution e', 0, 1.0, 0.05, config.collision.restitution, (v) => {
-        config.collision.restitution = v;
+      addSlider('Bob Mass (kg)', 0.5, 10.0, 0.1, circ.mass, (v) => {
+        circ.mass = v;
+        mechanicsDiagram.setConfig(config);
+      });
+      addSlider('Vertical Loop (0=No, 1=Yes)', 0, 1, 1, circ.isVertical ? 1 : 0, (v) => {
+        circ.isVertical = (v === 1);
         mechanicsDiagram.setConfig(config);
       });
     }
@@ -871,6 +904,34 @@ function updateStatusBar() {
       statusExtra2.querySelector('.status-value')!.innerHTML = `${vb.toFixed(1)} m/s`;
 
       statusExtra3.classList.add('hidden');
+    } else if (activeConfig.mode === 'circular' && activeConfig.circular) {
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Angle:';
+      statusExtra1.querySelector('.status-value')!.innerHTML = `${(mechanicsDiagram.circularAngle * 180 / Math.PI).toFixed(0)}°`;
+
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Inst. Speed:';
+      const r = activeConfig.circular.radius;
+      const g = activeConfig.circular.gravity;
+      const speed = activeConfig.circular.speed;
+      const theta = mechanicsDiagram.circularAngle + Math.PI / 2;
+      let instV = speed;
+      if (activeConfig.circular.isVertical) {
+        const h = r * (1 - Math.cos(theta));
+        const vSq = speed * speed - 2 * g * h;
+        instV = vSq > 0 ? Math.sqrt(vSq) : 0;
+      }
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${instV.toFixed(2)} m/s`;
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Tension:';
+      let T = 0;
+      if (activeConfig.circular.isVertical) {
+        T = (activeConfig.circular.mass * instV * instV) / r + activeConfig.circular.mass * g * Math.cos(theta);
+      } else {
+        T = (activeConfig.circular.mass * speed * speed) / r;
+      }
+      statusExtra3.querySelector('.status-value')!.innerHTML = `${T.toFixed(1)} N`;
     }
   }
 }
