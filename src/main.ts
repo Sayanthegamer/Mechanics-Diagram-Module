@@ -315,6 +315,8 @@ let activeConfig: PhysicsConfig = { ...PRESETS['shm-horizontal'] };
 let isPlaying: boolean = true;
 let simSpeed: number = 1.0;
 let lastTime: number = 0;
+let isDragging: boolean = false;
+let dragTarget: string | null = null;
 
 // Render Canvas classes
 let pc: PhysicsCanvas;
@@ -381,9 +383,414 @@ function init() {
     graphModule.resize();
   });
 
+  // Canvas Drag/Interaction handlers
+  pCanvas.addEventListener('mousedown', (e) => handleInteractionStart(e.clientX, e.clientY));
+  pCanvas.addEventListener('mousemove', (e) => handleInteractionMove(e.clientX, e.clientY));
+  pCanvas.addEventListener('mouseup', handleInteractionEnd);
+  pCanvas.addEventListener('mouseleave', handleInteractionEnd);
+
+  pCanvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 0) {
+      handleInteractionStart(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  });
+  pCanvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 0) {
+      handleInteractionMove(e.touches[0].clientX, e.touches[0].clientY);
+      e.preventDefault(); // prevent scroll
+    }
+  }, { passive: false });
+  pCanvas.addEventListener('touchend', handleInteractionEnd);
+  pCanvas.addEventListener('touchcancel', handleInteractionEnd);
+
+  // Keyboard accessibility
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) {
+      return;
+    }
+    if (e.code === 'Space') {
+      e.preventDefault();
+      togglePlayPause();
+    } else if (e.code === 'KeyR') {
+      resetSimulation();
+    } else if (e.code === 'KeyT') {
+      toggleTheme();
+    } else if (e.code === 'BracketRight') {
+      cyclePreset(1);
+    } else if (e.code === 'BracketLeft') {
+      cyclePreset(-1);
+    }
+  });
+
   // Start animation loop
   lastTime = performance.now();
   requestAnimationFrame(simulationLoop);
+}
+
+// --- Keyboard preset cycler ---
+function cyclePreset(dir: number) {
+  const keys = Object.keys(PRESETS);
+  const currentKey = selectPreset.value;
+  let index = keys.indexOf(currentKey);
+  if (index !== -1) {
+    index = (index + dir + keys.length) % keys.length;
+    loadPreset(keys[index]);
+  }
+}
+
+// --- Direct Canvas Interaction & Drag Helpers ---
+function handleInteractionStart(clientX: number, clientY: number) {
+  if (isDragging) return;
+
+  const rect = pc.canvas.getBoundingClientRect();
+  const sx = clientX - rect.left;
+  const sy = clientY - rect.top;
+  const p = pc.toPhysics(sx, sy);
+
+  if (activeConfig.type === 'vector') {
+    const { vectors, operation } = activeConfig;
+    if (operation === 'cross') {
+      const project = (x3d: number, y3d: number, z3d: number) => {
+        const scale3d = 40;
+        const isoAngle = 30 * (Math.PI / 180);
+        return {
+          x: pc.originX + (y3d - x3d) * Math.cos(isoAngle) * scale3d,
+          y: pc.originY - (z3d - (x3d + y3d) * Math.sin(isoAngle)) * scale3d
+        };
+      };
+
+      for (const v of vectors) {
+        const tip = project(v.x, v.y, v.z || 0);
+        const dist = Math.sqrt((sx - tip.x) * (sx - tip.x) + (sy - tip.y) * (sy - tip.y));
+        if (dist < 20) {
+          isDragging = true;
+          dragTarget = v.id;
+          isPlaying = false;
+          break;
+        }
+      }
+    } else {
+      if (vectors.length >= 1) {
+        const v1 = vectors[0];
+        const distA = Math.sqrt((p.x - v1.x) * (p.x - v1.x) + (p.y - v1.y) * (p.y - v1.y));
+        if (distA < 0.4) {
+          isDragging = true;
+          dragTarget = v1.id;
+          isPlaying = false;
+          return;
+        }
+      }
+      if (vectors.length >= 2) {
+        const v1 = vectors[0];
+        const v2 = vectors[1];
+        const tx = operation === 'add' ? v1.x + v2.x : v2.x;
+        const ty = operation === 'add' ? v1.y + v2.y : v2.y;
+        const distB = Math.sqrt((p.x - tx) * (p.x - tx) + (p.y - ty) * (p.y - ty));
+        if (distB < 0.4) {
+          isDragging = true;
+          dragTarget = v2.id;
+          isPlaying = false;
+          return;
+        }
+      }
+    }
+  } else if (activeConfig.type === 'fbd') {
+    const { surfaceType, inclineAngle, appliedForce } = activeConfig;
+    const vecScale = 0.08;
+
+    let bx = fbdDiagram.x;
+    let by = 0.5;
+    let angRad = appliedForce.angle * (Math.PI / 180);
+
+    if (surfaceType === 'suspended') {
+      bx = 0;
+      by = fbdDiagram.x;
+      angRad = -Math.PI / 2;
+    } else if (surfaceType === 'inclined') {
+      const thetaRad = inclineAngle * (Math.PI / 180);
+      bx = fbdDiagram.x * Math.cos(thetaRad) - 0.45 * Math.sin(thetaRad);
+      by = fbdDiagram.x * Math.sin(thetaRad) + 0.45 * Math.cos(thetaRad);
+      angRad = (inclineAngle + appliedForce.angle) * (Math.PI / 180);
+    }
+
+    if (appliedForce.magnitude > 0) {
+      const tx = bx + appliedForce.magnitude * Math.cos(angRad) * vecScale;
+      const ty = by + appliedForce.magnitude * Math.sin(angRad) * vecScale;
+      const dist = Math.sqrt((p.x - tx) * (p.x - tx) + (p.y - ty) * (p.y - ty));
+      if (dist < 0.4) {
+        isDragging = true;
+        dragTarget = 'applied-force';
+        isPlaying = false;
+        return;
+      }
+    }
+
+    if (surfaceType === 'inclined') {
+      const peakX = 6.0;
+      const peakY = 6.0 * Math.tan(inclineAngle * Math.PI / 180);
+      const dist = Math.sqrt((p.x - peakX) * (p.x - peakX) + (p.y - peakY) * (p.y - peakY));
+      if (dist < 0.5) {
+        isDragging = true;
+        dragTarget = 'incline-angle';
+        isPlaying = false;
+        return;
+      }
+    }
+  } else if (activeConfig.type === 'shm') {
+    const { systemType, length } = activeConfig;
+    if (systemType === 'simple-pendulum') {
+      const theta = shmDiagram.x;
+      const bobX = length * Math.sin(theta);
+      const bobY = -length * Math.cos(theta);
+      const dist = Math.sqrt((p.x - bobX) * (p.x - bobX) + (p.y - bobY) * (p.y - bobY));
+      if (dist < 0.5) {
+        isDragging = true;
+        dragTarget = 'shm-displacement';
+        isPlaying = false;
+        return;
+      }
+    } else if (systemType === 'spring-mass-horizontal') {
+      const bx = 2.0 + shmDiagram.x;
+      const by = 0.5;
+      const dist = Math.sqrt((p.x - bx) * (p.x - bx) + (p.y - by) * (p.y - by));
+      if (dist < 0.6) {
+        isDragging = true;
+        dragTarget = 'shm-displacement';
+        isPlaying = false;
+        return;
+      }
+    } else if (systemType === 'spring-mass-vertical') {
+      const unstretchedLength = 2.0;
+      const stretchEq = (activeConfig.mass * activeConfig.gravity) / activeConfig.springK;
+      const eqY = -unstretchedLength - stretchEq;
+      const bx = 0;
+      const by = eqY + shmDiagram.x;
+      const dist = Math.sqrt((p.x - bx) * (p.x - bx) + (p.y - by) * (p.y - by));
+      if (dist < 0.6) {
+        isDragging = true;
+        dragTarget = 'shm-displacement';
+        isPlaying = false;
+        return;
+      }
+    }
+  } else if (activeConfig.type === 'mechanics') {
+    const { mode, projectile } = activeConfig;
+    if (mode === 'projectile') {
+      const vecScale = 0.15;
+      const angleRad = projectile.angle * (Math.PI / 180);
+      const tx = -4.0 + projectile.velocity * Math.cos(angleRad) * vecScale;
+      const ty = projectile.velocity * Math.sin(angleRad) * vecScale;
+      const dist = Math.sqrt((p.x - tx) * (p.x - tx) + (p.y - ty) * (p.y - ty));
+      if (dist < 0.4) {
+        isDragging = true;
+        dragTarget = 'projectile-launcher';
+        isPlaying = false;
+        return;
+      }
+    }
+  }
+}
+
+function handleInteractionMove(clientX: number, clientY: number) {
+  const rect = pc.canvas.getBoundingClientRect();
+  const sx = clientX - rect.left;
+  const sy = clientY - rect.top;
+  const p = pc.toPhysics(sx, sy);
+
+  if (isDragging && dragTarget) {
+    pc.canvas.style.cursor = 'grabbing';
+    
+    if (activeConfig.type === 'vector') {
+      const { vectors, operation } = activeConfig;
+      if (operation === 'cross') {
+        const scale3d = 40;
+        const isoAngle = 30 * (Math.PI / 180);
+        const dx = (sx - pc.originX) / (scale3d * Math.cos(isoAngle));
+        const dy = (pc.originY - sy) / (scale3d * Math.sin(isoAngle));
+        const y3d = (dx + dy) / 2;
+        const x3d = (dy - dx) / 2;
+        
+        const target = vectors.find(v => v.id === dragTarget);
+        if (target) {
+          target.x = Math.max(-5, Math.min(5, x3d));
+          target.y = Math.max(-5, Math.min(5, y3d));
+        }
+      } else {
+        if (dragTarget === 'A' && vectors[0]) {
+          vectors[0].x = Math.max(-5, Math.min(5, p.x));
+          vectors[0].y = Math.max(-5, Math.min(5, p.y));
+        } else if (dragTarget === 'B' && vectors[1]) {
+          if (operation === 'add' && vectors[0]) {
+            vectors[1].x = Math.max(-5, Math.min(5, p.x - vectors[0].x));
+            vectors[1].y = Math.max(-5, Math.min(5, p.y - vectors[0].y));
+          } else {
+            vectors[1].x = Math.max(-5, Math.min(5, p.x));
+            vectors[1].y = Math.max(-5, Math.min(5, p.y));
+          }
+        }
+      }
+      applyConfig(activeConfig);
+    } else if (activeConfig.type === 'fbd') {
+      const { surfaceType, inclineAngle, appliedForce } = activeConfig;
+      
+      let bx = fbdDiagram.x;
+      let by = 0.5;
+      if (surfaceType === 'suspended') {
+        bx = 0;
+        by = fbdDiagram.x;
+      } else if (surfaceType === 'inclined') {
+        const thetaRad = inclineAngle * (Math.PI / 180);
+        bx = fbdDiagram.x * Math.cos(thetaRad) - 0.45 * Math.sin(thetaRad);
+        by = fbdDiagram.x * Math.sin(thetaRad) + 0.45 * Math.cos(thetaRad);
+      }
+
+      if (dragTarget === 'applied-force') {
+        const vecScale = 0.08;
+        let dx = p.x - bx;
+        let dy = p.y - by;
+        
+        let forceVal = Math.sqrt(dx * dx + dy * dy) / vecScale;
+        let angleVal = Math.atan2(dy, dx) * (180 / Math.PI);
+        
+        if (surfaceType === 'inclined') {
+          angleVal -= inclineAngle;
+        }
+        
+        angleVal = (angleVal + 360) % 360;
+        if (angleVal > 180) angleVal -= 360;
+
+        appliedForce.magnitude = Math.max(0, Math.min(80, forceVal));
+        appliedForce.angle = Math.max(-90, Math.min(90, angleVal));
+        applyConfig(activeConfig);
+      } else if (dragTarget === 'incline-angle') {
+        let angleVal = Math.atan2(p.y, 6.0) * (180 / Math.PI);
+        activeConfig.inclineAngle = Math.max(5, Math.min(75, angleVal));
+        applyConfig(activeConfig);
+      }
+    } else if (activeConfig.type === 'shm') {
+      const { systemType } = activeConfig;
+      if (dragTarget === 'shm-displacement') {
+        if (systemType === 'simple-pendulum') {
+          let angleVal = Math.atan2(p.x, -p.y) * (180 / Math.PI);
+          activeConfig.initialDisplacement = Math.max(-80, Math.min(80, angleVal));
+        } else if (systemType === 'spring-mass-horizontal') {
+          activeConfig.initialDisplacement = Math.max(-2, Math.min(3, p.x - 2.0));
+        } else if (systemType === 'spring-mass-vertical') {
+          const unstretchedLength = 2.0;
+          const stretchEq = (activeConfig.mass * activeConfig.gravity) / activeConfig.springK;
+          const eqY = -unstretchedLength - stretchEq;
+          activeConfig.initialDisplacement = Math.max(-2, Math.min(2, p.y - eqY));
+        }
+        applyConfig(activeConfig);
+      }
+    } else if (activeConfig.type === 'mechanics' && activeConfig.mode === 'projectile') {
+      if (dragTarget === 'projectile-launcher') {
+        const vecScale = 0.15;
+        const dx = p.x - (-4.0);
+        const dy = p.y - 0;
+        
+        let speedVal = Math.sqrt(dx * dx + dy * dy) / vecScale;
+        let angleVal = Math.atan2(dy, dx) * (180 / Math.PI);
+        
+        activeConfig.projectile.velocity = Math.max(5, Math.min(30, speedVal));
+        activeConfig.projectile.angle = Math.max(15, Math.min(85, angleVal));
+        applyConfig(activeConfig);
+      }
+    }
+  } else {
+    let hover = false;
+    if (activeConfig.type === 'vector') {
+      const { vectors, operation } = activeConfig;
+      if (operation === 'cross') {
+        const project = (x3d: number, y3d: number, z3d: number) => {
+          const scale3d = 40;
+          const isoAngle = 30 * (Math.PI / 180);
+          return {
+            x: pc.originX + (y3d - x3d) * Math.cos(isoAngle) * scale3d,
+            y: pc.originY - (z3d - (x3d + y3d) * Math.sin(isoAngle)) * scale3d
+          };
+        };
+        for (const v of vectors) {
+          const tip = project(v.x, v.y, v.z || 0);
+          const dist = Math.sqrt((sx - tip.x) * (sx - tip.x) + (sy - tip.y) * (sy - tip.y));
+          if (dist < 20) hover = true;
+        }
+      } else {
+        if (vectors[0]) {
+          const distA = Math.sqrt((p.x - vectors[0].x) * (p.x - vectors[0].x) + (p.y - vectors[0].y) * (p.y - vectors[0].y));
+          if (distA < 0.4) hover = true;
+        }
+        if (vectors[1]) {
+          const tx = operation === 'add' ? vectors[0].x + vectors[1].x : vectors[1].x;
+          const ty = operation === 'add' ? vectors[0].y + vectors[1].y : vectors[1].y;
+          const distB = Math.sqrt((p.x - tx) * (p.x - tx) + (p.y - ty) * (p.y - ty));
+          if (distB < 0.4) hover = true;
+        }
+      }
+    } else if (activeConfig.type === 'fbd') {
+      const { surfaceType, inclineAngle, appliedForce } = activeConfig;
+      let bx = fbdDiagram.x;
+      let by = 0.5;
+      let angRad = appliedForce.angle * (Math.PI / 180);
+      if (surfaceType === 'suspended') {
+        bx = 0;
+        by = fbdDiagram.x;
+        angRad = -Math.PI / 2;
+      } else if (surfaceType === 'inclined') {
+        const thetaRad = inclineAngle * (Math.PI / 180);
+        bx = fbdDiagram.x * Math.cos(thetaRad) - 0.45 * Math.sin(thetaRad);
+        by = fbdDiagram.x * Math.sin(thetaRad) + 0.45 * Math.cos(thetaRad);
+        angRad = (inclineAngle + appliedForce.angle) * (Math.PI / 180);
+      }
+      if (appliedForce.magnitude > 0) {
+        const tx = bx + appliedForce.magnitude * Math.cos(angRad) * 0.08;
+        const ty = by + appliedForce.magnitude * Math.sin(angRad) * 0.08;
+        const dist = Math.sqrt((p.x - tx) * (p.x - tx) + (p.y - ty) * (p.y - ty));
+        if (dist < 0.4) hover = true;
+      }
+      if (surfaceType === 'inclined') {
+        const peakX = 6.0;
+        const peakY = 6.0 * Math.tan(inclineAngle * Math.PI / 180);
+        const dist = Math.sqrt((p.x - peakX) * (p.x - peakX) + (p.y - peakY) * (p.y - peakY));
+        if (dist < 0.5) hover = true;
+      }
+    } else if (activeConfig.type === 'shm') {
+      const { systemType, length } = activeConfig;
+      if (systemType === 'simple-pendulum') {
+        const bobX = length * Math.sin(shmDiagram.x);
+        const bobY = -length * Math.cos(shmDiagram.x);
+        const dist = Math.sqrt((p.x - bobX) * (p.x - bobX) + (p.y - bobY) * (p.y - bobY));
+        if (dist < 0.5) hover = true;
+      } else if (systemType === 'spring-mass-horizontal') {
+        const bx = 2.0 + shmDiagram.x;
+        const by = 0.5;
+        const dist = Math.sqrt((p.x - bx) * (p.x - bx) + (p.y - by) * (p.y - by));
+        if (dist < 0.6) hover = true;
+      } else if (systemType === 'spring-mass-vertical') {
+        const unstretchedLength = 2.0;
+        const stretchEq = (activeConfig.mass * activeConfig.gravity) / activeConfig.springK;
+        const eqY = -unstretchedLength - stretchEq;
+        const by = eqY + shmDiagram.x;
+        const dist = Math.sqrt((p.x - 0) * (p.x - 0) + (p.y - by) * (p.y - by));
+        if (dist < 0.6) hover = true;
+      }
+    } else if (activeConfig.type === 'mechanics' && activeConfig.mode === 'projectile') {
+      const angleRad = activeConfig.projectile.angle * (Math.PI / 180);
+      const tx = -4.0 + activeConfig.projectile.velocity * Math.cos(angleRad) * 0.15;
+      const ty = activeConfig.projectile.velocity * Math.sin(angleRad) * 0.15;
+      const dist = Math.sqrt((p.x - tx) * (p.x - tx) + (p.y - ty) * (p.y - ty));
+      if (dist < 0.4) hover = true;
+    }
+    pc.canvas.style.cursor = hover ? 'grab' : 'default';
+  }
+}
+
+function handleInteractionEnd() {
+  if (isDragging) {
+    isDragging = false;
+    dragTarget = null;
+    pc.canvas.style.cursor = 'grab';
+  }
 }
 
 // --- Load Preset Config ---
