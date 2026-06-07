@@ -6,6 +6,7 @@ import { VectorDiagram } from './lib/diagrams/VectorDiagram';
 import { ShmDiagram } from './lib/diagrams/ShmDiagram';
 import { WaveDiagram } from './lib/diagrams/WaveDiagram';
 import { MechanicsDiagram } from './lib/diagrams/MechanicsDiagram';
+import { FluidsDiagram } from './lib/diagrams/FluidsDiagram';
 import { GraphModule } from './lib/diagrams/GraphModule';
 import type { GraphMode } from './lib/diagrams/GraphModule';
 
@@ -307,6 +308,68 @@ const PRESETS: Record<string, PhysicsConfig> = {
       gravity: 9.8,
       isVertical: true
     }
+  },
+  'fluids-buoyancy': {
+    type: 'fluids',
+    mode: 'buoyancy',
+    buoyancy: {
+      fluidDensity: 1000,
+      blockMass: 2.0,
+      blockVolume: 0.005,
+      gravity: 9.8,
+      showVectors: true
+    },
+    pascal: {
+      area1: 1.0,
+      area2: 3.0,
+      force1: 10.0,
+      displacement1: 0,
+      gravity: 9.8
+    },
+    bernoulli: {
+      fluidDensity: 1000,
+      flowRate: 0.015,
+      diameter1: 0.2,
+      diameter2: 0.1
+    },
+    viscosity: {
+      fluidDensity: 1000,
+      viscosity: 0.001,
+      sphereRadius: 0.05,
+      sphereDensity: 2500,
+      gravity: 9.8
+    }
+  },
+  'fluids-pascal': {
+    type: 'fluids',
+    mode: 'pascal',
+    buoyancy: {
+      fluidDensity: 1000,
+      blockMass: 2.0,
+      blockVolume: 0.005,
+      gravity: 9.8,
+      showVectors: true
+    },
+    pascal: {
+      area1: 1.0,
+      area2: 3.0,
+      force1: 15.0,
+      displacement1: 0,
+      gravity: 9.8
+    },
+    bernoulli: {
+      fluidDensity: 1000,
+      flowRate: 0.015,
+      diameter1: 0.2,
+      diameter2: 0.1
+    },
+    viscosity: {
+      fluidDensity: 1000,
+      viscosity: 0.001,
+      sphereRadius: 0.05,
+      sphereDensity: 2500,
+      gravity: 9.8
+    }
   }
 };
 
@@ -328,6 +391,7 @@ let vectorDiagram: VectorDiagram;
 let shmDiagram: ShmDiagram;
 let waveDiagram: WaveDiagram;
 let mechanicsDiagram: MechanicsDiagram;
+let fluidsDiagram: FluidsDiagram;
 
 // DOM Elements
 const selectPreset = document.getElementById('select-preset') as HTMLSelectElement;
@@ -364,6 +428,7 @@ function init() {
   shmDiagram = new ShmDiagram(pc);
   waveDiagram = new WaveDiagram(pc);
   mechanicsDiagram = new MechanicsDiagram(pc);
+  fluidsDiagram = new FluidsDiagram(pc);
 
   // Load initial preset
   loadPreset('shm-horizontal');
@@ -588,6 +653,14 @@ function handleInteractionStart(clientX: number, clientY: number) {
         return;
       }
     }
+  } else if (activeConfig.type === 'fluids') {
+    const target = fluidsDiagram.getDragTarget(p);
+    if (target) {
+      isDragging = true;
+      dragTarget = target;
+      isPlaying = false;
+      return;
+    }
   }
 }
 
@@ -696,8 +769,15 @@ function handleInteractionMove(clientX: number, clientY: number) {
         activeConfig.projectile.angle = Math.max(15, Math.min(85, angleVal));
         applyConfig(activeConfig);
       }
+    } else if (activeConfig.type === 'fluids' && dragTarget) {
+    const target = dragTarget as 'block' | 'probe' | 'piston1' | 'piston2';
+    fluidsDiagram.updateDrag(target, p);
+    if (activeConfig.mode === 'pascal') {
+      activeConfig.pascal.displacement1 = fluidsDiagram.pistonOffset;
     }
-  } else {
+    applyConfig(activeConfig);
+  }
+} else {
     let hover = false;
     if (activeConfig.type === 'vector') {
       const { vectors, operation } = activeConfig;
@@ -780,6 +860,8 @@ function handleInteractionMove(clientX: number, clientY: number) {
       const ty = activeConfig.projectile.velocity * Math.sin(angleRad) * 0.15;
       const dist = Math.sqrt((p.x - tx) * (p.x - tx) + (p.y - ty) * (p.y - ty));
       if (dist < 0.4) hover = true;
+    } else if (activeConfig.type === 'fluids') {
+      if (fluidsDiagram.getDragTarget(p)) hover = true;
     }
     pc.canvas.style.cursor = hover ? 'grab' : 'default';
   }
@@ -850,6 +932,11 @@ function applyConfig(config: PhysicsConfig) {
     mechanicsDiagram.setConfig(config);
     graphCard.classList.add('hidden');
     selectGraphMode.classList.add('hidden');
+  } else if (config.type === 'fluids') {
+    fluidsDiagram.setConfig(config);
+    graphCard.classList.remove('hidden');
+    selectGraphMode.classList.add('hidden');
+    graphTitle.innerText = 'Real-Time Graph: DEPTH PRESSURE / BLOCK DISPLACEMENT';
   }
 
   // Generate controls UI
@@ -869,6 +956,8 @@ function updateTitles(config: PhysicsConfig) {
     canvasTitle.innerText = `Wave Dynamics Simulator: ${config.waveType.toUpperCase()}`;
   } else if (config.type === 'mechanics') {
     canvasTitle.innerText = `Classical Mechanics: ${config.mode.toUpperCase()}`;
+  } else if (config.type === 'fluids') {
+    canvasTitle.innerText = `Fluid Mechanics: ${config.mode.toUpperCase()}`;
   }
 }
 
@@ -1066,6 +1155,34 @@ function renderSliders(config: PhysicsConfig) {
         mechanicsDiagram.setConfig(config);
       });
     }
+  } else if (config.type === 'fluids') {
+    if (config.mode === 'buoyancy') {
+      addSlider('Fluid Density (kg/m³)', 500, 1500, 50, config.buoyancy.fluidDensity, (v) => {
+        config.buoyancy.fluidDensity = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Block Mass (kg)', 0.5, 15.0, 0.1, config.buoyancy.blockMass, (v) => {
+        config.buoyancy.blockMass = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Block Volume (m³)', 0.001, 0.015, 0.0005, config.buoyancy.blockVolume, (v) => {
+        config.buoyancy.blockVolume = v;
+        fluidsDiagram.setConfig(config);
+      });
+    } else if (config.mode === 'pascal') {
+      addSlider('Piston 1 Area (m²)', 0.5, 2.0, 0.1, config.pascal.area1, (v) => {
+        config.pascal.area1 = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Piston 2 Area (m²)', 2.0, 6.0, 0.2, config.pascal.area2, (v) => {
+        config.pascal.area2 = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Input Force F1 (N)', 0, 50, 1, config.pascal.force1, (v) => {
+        config.pascal.force1 = v;
+        fluidsDiagram.setConfig(config);
+      });
+    }
   }
 }
 
@@ -1199,6 +1316,8 @@ function stepSimulation(dt: number) {
     waveDiagram.step(dt);
   } else if (activeConfig.type === 'mechanics') {
     mechanicsDiagram.step(dt);
+  } else if (activeConfig.type === 'fluids') {
+    fluidsDiagram.step(dt);
   }
 }
 
@@ -1215,6 +1334,9 @@ function drawActiveSimulation() {
     waveDiagram.draw();
   } else if (activeConfig.type === 'mechanics') {
     mechanicsDiagram.draw();
+  } else if (activeConfig.type === 'fluids') {
+    fluidsDiagram.draw(pc);
+    graphModule.drawFluids(fluidsDiagram.history);
   }
 }
 
@@ -1339,6 +1461,51 @@ function updateStatusBar() {
         T = (activeConfig.circular.mass * speed * speed) / r;
       }
       statusExtra3.querySelector('.status-value')!.innerHTML = `${T.toFixed(1)} N`;
+    }
+  } else if (activeConfig.type === 'fluids') {
+    statusTime.innerText = `${fluidsDiagram.t.toFixed(2)}s`;
+
+    if (activeConfig.mode === 'buoyancy') {
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Fluid Density:';
+      statusExtra1.querySelector('.status-value')!.innerHTML = `${activeConfig.buoyancy.fluidDensity} kg/m³`;
+
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Block Pos Y:';
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${fluidsDiagram.blockY.toFixed(2)} m`;
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Buoyancy Fb:';
+      // Calculate buoyant force magnitude
+      const rFluid = activeConfig.buoyancy.fluidDensity;
+      const bVol = activeConfig.buoyancy.blockVolume;
+      const g = activeConfig.buoyancy.gravity;
+      const hBlock = Math.pow(bVol, 1/3);
+      const fluidLevel = 2.0;
+      const blockBottom = fluidsDiagram.blockY - hBlock / 2;
+      const blockTop = fluidsDiagram.blockY + hBlock / 2;
+      let hSub = 0;
+      if (blockTop <= fluidLevel) hSub = hBlock;
+      else if (blockBottom >= fluidLevel) hSub = 0;
+      else hSub = fluidLevel - blockBottom;
+      const vSub = bVol * (hSub / hBlock);
+      const Fb = rFluid * vSub * g;
+      statusExtra3.querySelector('.status-value')!.innerHTML = `${Fb.toFixed(1)} N`;
+    } else if (activeConfig.mode === 'pascal') {
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Piston P1:';
+      const P1 = activeConfig.pascal.force1 / activeConfig.pascal.area1;
+      statusExtra1.querySelector('.status-value')!.innerHTML = `${P1.toFixed(1)} Pa`;
+
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Piston P2:';
+      const F2 = activeConfig.pascal.force1 * (activeConfig.pascal.area2 / activeConfig.pascal.area1);
+      const P2 = F2 / activeConfig.pascal.area2;
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${P2.toFixed(1)} Pa`;
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Output F2:';
+      statusExtra3.querySelector('.status-value')!.innerHTML = `${F2.toFixed(1)} N`;
     }
   }
 }

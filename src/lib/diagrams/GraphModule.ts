@@ -1,5 +1,6 @@
 import type { ShmState } from './ShmDiagram';
 import type { FbdState } from './FbdDiagram';
+import type { FluidsState } from './FluidsDiagram';
 
 export type GraphMode = 'kinematics' | 'energy' | 'phase-space';
 
@@ -461,6 +462,136 @@ export class GraphModule {
     plotCurve((d) => d.x, '#f59e0b', 'Position (x)', 0);
     plotCurve((d) => d.v, '#22d3ee', 'Velocity (v)', 1);
     plotCurve((d) => d.a, '#ef4444', 'Accel (a)', 2);
+
+    this.ctx.restore();
+  }
+
+  // Draw Fluids real-time graph (blockY, blockVy, pressureGauge in kPa vs time)
+  public drawFluids(history: FluidsState[]): void {
+    this.clear();
+    if (history.length < 2) return;
+
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+
+    const axisColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+    const gridColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+    const textColor = this.theme === 'dark' ? '#888' : '#666';
+
+    const padding = { top: 25, right: 20, bottom: 25, left: 45 };
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
+
+    // Determine scale bounds dynamically
+    let yMin = Infinity;
+    let yMax = -Infinity;
+
+    history.forEach((d) => {
+      const pKpa = d.pressureGauge / 1000 - 101.3; // Gauge or relative pressure in kPa to scale nicely
+      yMin = Math.min(yMin, d.blockY, d.blockVy, pKpa);
+      yMax = Math.max(yMax, d.blockY, d.blockVy, pKpa);
+    });
+
+    const yRange = yMax - yMin;
+    if (yRange < 0.01) {
+      yMin -= 0.5;
+      yMax += 0.5;
+    } else {
+      yMin -= yRange * 0.1;
+      yMax += yRange * 0.1;
+    }
+
+    const xMin = history[0].t;
+    const xMax = history[history.length - 1].t;
+    const xRange = xMax - xMin;
+
+    const getXScreen = (t: number) => {
+      return padding.left + ((t - xMin) / xRange) * graphWidth;
+    };
+
+    const getYScreen = (val: number) => {
+      return padding.top + (1.0 - (val - yMin) / (yMax - yMin)) * graphHeight;
+    };
+
+    this.ctx.save();
+
+    // Grid
+    this.ctx.strokeStyle = gridColor;
+    this.ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const val = yMin + (i / 4) * (yMax - yMin);
+      const sy = getYScreen(val);
+      this.ctx.beginPath();
+      this.ctx.moveTo(padding.left, sy);
+      this.ctx.lineTo(width - padding.right, sy);
+      this.ctx.stroke();
+
+      this.ctx.fillStyle = textColor;
+      this.ctx.font = '9px Outfit, sans-serif';
+      this.ctx.textAlign = 'right';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(val.toFixed(1), padding.left - 8, sy);
+    }
+
+    // Axes border
+    this.ctx.strokeStyle = axisColor;
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(padding.left, padding.top);
+    this.ctx.lineTo(padding.left, height - padding.bottom);
+    this.ctx.lineTo(width - padding.right, height - padding.bottom);
+    this.ctx.stroke();
+
+    // Zero line
+    if (yMin < 0 && yMax > 0) {
+      const zeroY = getYScreen(0);
+      this.ctx.strokeStyle = this.theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+      this.ctx.beginPath();
+      this.ctx.moveTo(padding.left, zeroY);
+      this.ctx.lineTo(width - padding.right, zeroY);
+      this.ctx.stroke();
+    }
+
+    // Plot curves helper
+    const plotCurve = (
+      getField: (s: FluidsState) => number,
+      color: string,
+      label: string,
+      legendIdx: number
+    ) => {
+      this.ctx.save();
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+
+      history.forEach((d, idx) => {
+        const sx = getXScreen(d.t);
+        const sy = getYScreen(getField(d));
+        if (idx === 0) this.ctx.moveTo(sx, sy);
+        else this.ctx.lineTo(sx, sy);
+      });
+      this.ctx.stroke();
+
+      // Legend
+      const legendX = padding.left + legendIdx * 110;
+      const legendY = padding.top - 12;
+
+      this.ctx.fillStyle = color;
+      this.ctx.beginPath();
+      this.ctx.arc(legendX, legendY, 4, 0, 2 * Math.PI);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+      this.ctx.font = 'bold 10px Outfit, sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(label, legendX + 8, legendY);
+      this.ctx.restore();
+    };
+
+    plotCurve((d) => d.blockY, '#f59e0b', 'Block Y (m)', 0);
+    plotCurve((d) => d.blockVy, '#22d3ee', 'Velocity Y (m/s)', 1);
+    plotCurve((d) => d.pressureGauge / 1000 - 101.3, '#8b5cf6', 'Gauge P (kPa)', 2);
 
     this.ctx.restore();
   }
