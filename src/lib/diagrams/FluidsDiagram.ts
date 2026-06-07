@@ -221,6 +221,9 @@ export class FluidsDiagram {
   public draw(canvas: PhysicsCanvas): void {
     if (!this.config) return;
 
+    canvas.clear();
+    canvas.resetOrigin();
+
     if (this.config.mode === 'buoyancy') {
       this.drawBuoyancy(canvas);
     } else if (this.config.mode === 'pascal') {
