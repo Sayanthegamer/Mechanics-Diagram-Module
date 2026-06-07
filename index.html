@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mechanics Diagram & Simulation Module</title>
+    <!-- Google Fonts Outfit & JetBrains Mono for Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="dark-theme">
+    <div id="app">
+      <!-- Top Header / Toolbar -->
+      <header class="app-header">
+        <div class="logo-area">
+          <svg class="logo-icon" viewBox="0 0 24 24" width="24" height="24">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" fill="none"/>
+            <path d="M12 3 v18 M3 12 h18" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2,2"/>
+            <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+          </svg>
+          <h1>Mechanics <span class="accent-text">Diagram Module</span></h1>
+        </div>
+
+        <div class="toolbar-controls">
+          <!-- Play / Pause / Step Controls -->
+          <div class="control-group sim-controls">
+            <button id="btn-play-pause" class="btn btn-primary" title="Play / Pause">
+              <svg class="icon-play" viewBox="0 0 24 24" width="16" height="16"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+              <svg class="icon-pause hidden" viewBox="0 0 24 24" width="16" height="16"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/></svg>
+              <span>Pause</span>
+            </button>
+            <button id="btn-step" class="btn" title="Step Frame">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" fill="currentColor"/></svg>
+              <span>Step</span>
+            </button>
+            <button id="btn-reset" class="btn" title="Reset Simulation">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" fill="currentColor"/></svg>
+              <span>Reset</span>
+            </button>
+          </div>
+
+          <!-- Speed Slider -->
+          <div class="control-group speed-slider-group">
+            <label for="slider-speed">Speed: <span id="label-speed">1.0x</span></label>
+            <input type="range" id="slider-speed" min="0.1" max="2.0" step="0.1" value="1.0" />
+          </div>
+
+          <!-- Theme & Graph Mode Controls -->
+          <div class="control-group options-controls">
+            <select id="select-graph-mode" class="select-input hidden">
+              <option value="kinematics">Kinematics (x, v)</option>
+              <option value="energy">Energy Conservation</option>
+              <option value="phase-space">Phase Space Orbit</option>
+            </select>
+            <button id="btn-theme-toggle" class="btn btn-icon" title="Toggle Theme">
+              <svg class="icon-sun hidden" viewBox="0 0 24 24" width="18" height="18"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41l1.06-1.06z" fill="currentColor"/></svg>
+              <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18"><path d="M12.3 2a10 10 0 0 0-1.9 19.8 10 10 0 0 1 10-10 10 10 0 0 0-8.1-9.8z" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Layout Grid -->
+      <main class="main-layout">
+        
+        <!-- Left Sidebar: Controls & Code -->
+        <aside class="sidebar">
+          <div class="sidebar-section preset-section">
+            <label for="select-preset">Select Physics Preset</label>
+            <select id="select-preset" class="select-input">
+              <optgroup label="Free Body Diagrams (FBD)">
+                <option value="fbd-horizontal">FBD: Horizontal Friction</option>
+                <option value="fbd-inclined">FBD: Inclined Plane Forces</option>
+                <option value="fbd-suspended">FBD: Suspended Mass</option>
+              </optgroup>
+              <optgroup label="Vector Operations">
+                <option value="vector-none">Vectors: 2D components</option>
+                <option value="vector-add">Vectors: Addition (Nose-to-Tail)</option>
+                <option value="vector-subtract">Vectors: Subtraction</option>
+                <option value="vector-dot">Vectors: Dot Product Projection</option>
+                <option value="vector-cross">Vectors: 3D Cross Product</option>
+              </optgroup>
+              <optgroup label="SHM & Oscillations">
+                <option value="shm-horizontal">SHM: Horizontal Spring-Mass</option>
+                <option value="shm-vertical">SHM: Vertical Spring-Mass</option>
+                <option value="shm-pendulum">SHM: Simple Pendulum</option>
+                <option value="shm-damped">SHM: Damped Driven Resonance</option>
+              </optgroup>
+              <optgroup label="Wave Dynamics">
+                <option value="wave-transverse">Waves: Transverse Propagation</option>
+                <option value="wave-longitudinal">Waves: Longitudinal Layers</option>
+                <option value="wave-superposition">Waves: Pulse Superposition</option>
+                <option value="wave-standing">Waves: Standing Wave Pattern</option>
+              </optgroup>
+              <optgroup label="Kinematics & Dynamics">
+                <option value="mech-projectile-drag">Mechanics: Projectile with Air Drag</option>
+                <option value="mech-pulley-atwood">Mechanics: Atwood Machine</option>
+                <option value="mech-pulley-inclined">Mechanics: Pulley on Incline</option>
+                <option value="mech-collision-1d">Mechanics: 1D Elastic Collision</option>
+                <option value="mech-collision-2d">Mechanics: 2D Inelastic Collision</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- Parameters Control Sliders Card -->
+          <div class="sidebar-section parameters-card">
+            <h3>Parameters</h3>
+            <div id="dynamic-sliders" class="sliders-container">
+              <!-- Sliders will be injected dynamically via TypeScript -->
+            </div>
+          </div>
+
+          <!-- Interactive Code Configuration Editor Card -->
+          <div class="sidebar-section code-card">
+            <div class="code-header">
+              <h3>Configuration Code</h3>
+              <button id="btn-apply-code" class="btn btn-small">Apply</button>
+            </div>
+            <p class="section-desc">Edit this configuration code directly to update the diagram simulation.</p>
+            <div class="editor-container">
+              <textarea id="code-editor" spellcheck="false" autocomplete="off"></textarea>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Center Workspace Area (Main Canvas & Secondary Canvas) -->
+        <section class="workspace">
+          <!-- Main Physics Canvas Card -->
+          <div class="canvas-card main-canvas-card">
+            <div class="canvas-header">
+              <span class="badge" id="canvas-badge">Simulation</span>
+              <div class="canvas-title-text" id="canvas-title">Oscillations</div>
+            </div>
+            <div class="canvas-container">
+              <canvas id="physics-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Secondary Graph Canvas Card -->
+          <div class="canvas-card graph-canvas-card" id="graph-card">
+            <div class="canvas-header">
+              <span class="badge badge-purple">Real-Time Graph</span>
+              <div class="canvas-title-text" id="graph-title">Phase Space Spiral</div>
+            </div>
+            <div class="canvas-container">
+              <canvas id="graph-canvas"></canvas>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- Bottom Status Bar -->
+      <footer class="app-status-bar">
+        <div class="status-item">
+          <span class="status-label">Sim Time:</span>
+          <span class="status-value" id="status-time">0.00s</span>
+        </div>
+        <div class="status-item" id="status-extra-1">
+          <span class="status-label">X position:</span>
+          <span class="status-value">0.00m</span>
+        </div>
+        <div class="status-item" id="status-extra-2">
+          <span class="status-label">Velocity:</span>
+          <span class="status-value">0.00m/s</span>
+        </div>
+        <div class="status-item" id="status-extra-3">
+          <span class="status-label">Kinetic Energy:</span>
+          <span class="status-value">0.00 J</span>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Script Orchestration -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
