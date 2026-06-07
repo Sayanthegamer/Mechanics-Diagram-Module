@@ -1,12 +1,13 @@
 # GSD Project State
 
 ## Current Position
-- **Phase**: Phase 4 (Completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Milestone**: v1.0 (Completed & Archived)
+- **Phase**: None
+- **Status**: ✅ Milestone Complete
 
-## Last Session Summary
-Phase 4 (User Interaction & Accessibility) executed and verified successfully. Added circular motion loops, direct canvas click/touch drag handles, hover grab visual styles, and window hotkeys. 2 plans and 6 tasks completed.
+## Milestone Summary
+Milestone v1.0 (Released & Polished) containing Phases 1-4 has been completed, verified, and archived.
+All deliverables (vector math, FBD simulation, SHM systems, waves, macroscopic mechanics, graphs, dynamic presets, drag-and-drop handles, and keyboard accessibility) have been fully shipped.
 
 ## Next Steps
-1. All phases in the current milestone are complete! 🎉
+1. Initialize a new milestone using `/new-milestone` to propose future phases of work.

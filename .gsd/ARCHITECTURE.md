@@ -53,10 +53,15 @@ Each diagram class follows a unified interface: `setConfig(config)`, `resetState
     1. Projectile motion with quadratic air drag ($b \cdot v^2$).
     2. Pulley systems (Atwood machines and inclined planes) with mass-tension acceleration physics.
     3. Collisions (1D and 2D) using coefficient of restitution ($e$) and particle spark effects on impact.
+    4. Circular motion (vertical loops with conservation of energy tension $T(\theta) = \frac{mv^2}{R} + mg\cos\theta$ and uniform horizontal orbits).
 - **GraphModule.ts**:
   - Plots real-time data points (kinematics, energies, phase space orbits) on a separate HTML5 Canvas.
 
-### 4. Shared Types
+### 4. Interactive & Accessibility Subsystem
+- **Files**: `src/main.ts`
+- **Purpose**: Mapped drag/touch inputs to physics parameters via canvas coordinate transforms and coordinates inversion (e.g., isometric 3D inverse mapping: $y_{3d} = \frac{dx + dy}{2}, x_{3d} = \frac{dy - dx}{2}$). Implemented global keyboard event listeners (Space, R, T, `[`, `]`) for enhanced accessibility.
+
+### 5. Shared Types
 - **File**: `src/lib/types.ts`
 - **Purpose**: Defines configuration schemas and settings interfaces for all diagram types, facilitating strongly-typed data binding and JSON configuration parsing.
 
