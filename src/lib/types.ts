@@ -107,12 +107,22 @@ export interface CollisionParams {
   restitution: number; // e (0 to 1)
 }
 
+export interface CircularParams {
+  radius: number; // m
+  speed: number;  // m/s (initial velocity at bottom for vertical, constant speed for horizontal)
+  mass: number;   // kg
+  gravity: number; // m/s^2
+  isVertical: boolean; // toggle vertical vs horizontal circular motion
+}
+
 export interface MechanicsConfig extends BaseConfig {
   type: 'mechanics';
-  mode: 'projectile' | 'pulley' | 'collision';
+  mode: 'projectile' | 'pulley' | 'collision' | 'circular';
   projectile: ProjectileParams;
   pulley: PulleyParams;
   collision: CollisionParams;
+  circular?: CircularParams;
 }
 
 export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig;
+
