@@ -370,6 +370,68 @@ const PRESETS: Record<string, PhysicsConfig> = {
       sphereDensity: 2500,
       gravity: 9.8
     }
+  },
+  'fluids-bernoulli': {
+    type: 'fluids',
+    mode: 'bernoulli',
+    buoyancy: {
+      fluidDensity: 1000,
+      blockMass: 2.0,
+      blockVolume: 0.005,
+      gravity: 9.8,
+      showVectors: true
+    },
+    pascal: {
+      area1: 1.0,
+      area2: 3.0,
+      force1: 15.0,
+      displacement1: 0,
+      gravity: 9.8
+    },
+    bernoulli: {
+      fluidDensity: 1000,
+      flowRate: 0.015,
+      diameter1: 1.2,
+      diameter2: 0.5
+    },
+    viscosity: {
+      fluidDensity: 1000,
+      viscosity: 0.1,
+      sphereRadius: 0.08,
+      sphereDensity: 2500,
+      gravity: 9.8
+    }
+  },
+  'fluids-viscosity': {
+    type: 'fluids',
+    mode: 'viscosity',
+    buoyancy: {
+      fluidDensity: 1000,
+      blockMass: 2.0,
+      blockVolume: 0.005,
+      gravity: 9.8,
+      showVectors: true
+    },
+    pascal: {
+      area1: 1.0,
+      area2: 3.0,
+      force1: 15.0,
+      displacement1: 0,
+      gravity: 9.8
+    },
+    bernoulli: {
+      fluidDensity: 1000,
+      flowRate: 0.015,
+      diameter1: 1.2,
+      diameter2: 0.5
+    },
+    viscosity: {
+      fluidDensity: 900,
+      viscosity: 0.2,
+      sphereRadius: 0.1,
+      sphereDensity: 2200,
+      gravity: 9.8
+    }
   }
 };
 
@@ -1180,6 +1242,40 @@ function renderSliders(config: PhysicsConfig) {
       });
       addSlider('Input Force F1 (N)', 0, 50, 1, config.pascal.force1, (v) => {
         config.pascal.force1 = v;
+        fluidsDiagram.setConfig(config);
+      });
+    } else if (config.mode === 'bernoulli') {
+      addSlider('Fluid Density (kg/m³)', 500, 1500, 50, config.bernoulli.fluidDensity, (v) => {
+        config.bernoulli.fluidDensity = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Volume Flow Rate (m³/s)', 0.005, 0.030, 0.001, config.bernoulli.flowRate, (v) => {
+        config.bernoulli.flowRate = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Inlet Diameter D1 (m)', 0.8, 1.8, 0.1, config.bernoulli.diameter1, (v) => {
+        config.bernoulli.diameter1 = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Throat Diameter D2 (m)', 0.3, 0.7, 0.05, config.bernoulli.diameter2, (v) => {
+        config.bernoulli.diameter2 = v;
+        fluidsDiagram.setConfig(config);
+      });
+    } else if (config.mode === 'viscosity') {
+      addSlider('Fluid Density (kg/m³)', 500, 1500, 50, config.viscosity.fluidDensity, (v) => {
+        config.viscosity.fluidDensity = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Viscosity (Pa·s)', 0.05, 1.0, 0.05, config.viscosity.viscosity, (v) => {
+        config.viscosity.viscosity = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Sphere Radius (m)', 0.03, 0.15, 0.01, config.viscosity.sphereRadius, (v) => {
+        config.viscosity.sphereRadius = v;
+        fluidsDiagram.setConfig(config);
+      });
+      addSlider('Sphere Density (kg/m³)', 1200, 4000, 100, config.viscosity.sphereDensity, (v) => {
+        config.viscosity.sphereDensity = v;
         fluidsDiagram.setConfig(config);
       });
     }

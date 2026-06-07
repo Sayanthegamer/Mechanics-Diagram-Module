@@ -17,7 +17,7 @@
 **Objective**: Build the buoyancy and hydrostatic pressure solver, including block floatation, movable pressure probes, and the hydraulic press.
 
 ### Phase 6: Hydrodynamics (Bernoulli Flow & Viscosity)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Implement pipe cross-section solvers, streamlines, Venturi tubes, and viscous drag terminal velocity physics.
 
 ### Phase 7: UI Integration, Plotting & Polish
