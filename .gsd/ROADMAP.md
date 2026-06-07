@@ -1,6 +1,6 @@
 # ROADMAP.md
 
-> **Current Phase**: Phase 3 (Completed)
+> **Current Phase**: Phase 4 (Completed)
 > **Milestone**: v1.0 (Released & Polished)
 
 ## Must-Haves (from SPEC)
@@ -45,9 +45,9 @@
 - [x] Setup status bars showing time, position, velocities, energies
 
 ### Phase 4: User Interaction & Accessibility
-**Status**: ⬜ Planned
+**Status**: 🟩 Completed
 **Objective**: Enhance direct manipulation and expand physics presets.
-- [ ] Implement circular/centripetal motion preset
-- [ ] Add interactive drag handles to adjust vectors and block positions directly on the canvas
-- [ ] Add keyboard hotkeys (e.g., Space to pause/play, R to reset, numbers to switch presets)
-- [ ] Optimize touch events for mobile/tablet screens
+- [x] Implement circular/centripetal motion preset
+- [x] Add interactive drag handles to adjust vectors and block positions directly on the canvas
+- [x] Add keyboard hotkeys (e.g., Space to pause/play, R to reset, numbers to switch presets)
+- [x] Optimize touch events for mobile/tablet screens
