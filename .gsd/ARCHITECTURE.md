@@ -54,6 +54,10 @@ Each diagram class follows a unified interface: `setConfig(config)`, `resetState
     2. Pulley systems (Atwood machines and inclined planes) with mass-tension acceleration physics.
     3. Collisions (1D and 2D) using coefficient of restitution ($e$) and particle spark effects on impact.
     4. Circular motion (vertical loops with conservation of energy tension $T(\theta) = \frac{mv^2}{R} + mg\cos\theta$ and uniform horizontal orbits).
+- **FluidsDiagram.ts**:
+  - Simulates fluid mechanics scenarios (Buoyancy floating/sinking block lab with absolute/gauge pressure probe and Pascal hydraulic press).
+  - Calculates submerged block volumes, buoyancy force vectors, and viscous fluid damping to stabilize oscillations.
+  - Implements hydraulic cylinder volume conservation constraint equations.
 - **GraphModule.ts**:
   - Plots real-time data points (kinematics, energies, phase space orbits) on a separate HTML5 Canvas.
 
