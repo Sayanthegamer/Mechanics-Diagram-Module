@@ -387,28 +387,138 @@ export class ThermoDiagram {
     this.pc.originY = this.pc.canvas.clientHeight / 2 + this.pc.panY;
 
     const xRight = this.xLeft + this.volume * 2.4;
+    const xMax = this.xLeft + 5.0 * 2.4; // Maximum cylinder length
     const xMid = (this.xLeft + xRight) / 2;
 
     const sLeftBottom = this.pc.toScreen(this.xLeft, this.yBottom);
+    const sMaxRightTop = this.pc.toScreen(xMax, this.yTop);
     const sRightTop = this.pc.toScreen(xRight, this.yTop);
 
     const boxW = sRightTop.x - sLeftBottom.x;
     const boxH = sLeftBottom.y - sRightTop.y;
 
-    // 1. Draw container chamber backfill
+    // 1. Draw container chamber backfill (active gas volume area)
     this.pc.ctx.save();
     this.pc.ctx.fillStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)';
     this.pc.ctx.fillRect(sLeftBottom.x, sRightTop.y, boxW, boxH);
     this.pc.ctx.restore();
 
-    // 2. Draw active container border lines
-    this.pc.ctx.save();
-    this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
-    this.pc.ctx.lineWidth = 4;
-    this.pc.ctx.strokeRect(sLeftBottom.x, sRightTop.y, boxW, boxH);
-    this.pc.ctx.restore();
+    // 2. Draw outer container casing
+    if (this.config.mode === 'diffusion') {
+      // Draw closed rectangle casing
+      this.pc.ctx.save();
+      this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
+      this.pc.ctx.lineWidth = 5;
+      this.pc.ctx.strokeRect(sLeftBottom.x, sRightTop.y, boxW, boxH);
+      this.pc.ctx.restore();
+    } else {
+      // Draw open U-shaped cylinder casing
+      this.pc.ctx.save();
+      this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
+      this.pc.ctx.lineWidth = 5;
+      this.pc.ctx.lineCap = 'round';
+      this.pc.ctx.beginPath();
+      // Start at top-right of the maximum casing length
+      this.pc.ctx.moveTo(sMaxRightTop.x, sMaxRightTop.y);
+      // Line to top-left
+      this.pc.ctx.lineTo(sLeftBottom.x, sMaxRightTop.y);
+      // Line to bottom-left
+      this.pc.ctx.lineTo(sLeftBottom.x, sLeftBottom.y);
+      // Line to bottom-right
+      this.pc.ctx.lineTo(sMaxRightTop.x, sLeftBottom.y);
+      this.pc.ctx.stroke();
+      this.pc.ctx.restore();
+    }
 
-    // 3. Draw central barrier in diffusion mode
+    // 3. Draw heat source (flame) or sink (ice blocks) underneath the active chamber
+    if (this.heatTransfer === 'heating') {
+      this.pc.ctx.save();
+      const burnerWidth = Math.min(120, boxW - 20);
+      const burnerCenterX = (sLeftBottom.x + sRightTop.x) / 2;
+      const burnerTopY = sLeftBottom.y + 10;
+      const burnerHeight = 30;
+      const timeSeed = Date.now() * 0.005;
+
+      this.pc.ctx.beginPath();
+      this.pc.ctx.moveTo(burnerCenterX - burnerWidth / 2, burnerTopY + burnerHeight);
+
+      const steps = 5;
+      const stepWidth = burnerWidth / steps;
+      for (let i = 0; i <= steps; i++) {
+        const x = burnerCenterX - burnerWidth / 2 + i * stepWidth;
+        const heightNoise = 10 * Math.sin(timeSeed + i * 1.5) + 5 * Math.cos(timeSeed * 0.7 + i);
+        const y = burnerTopY + (i % 2 === 0 ? 0 : -10) + heightNoise;
+
+        if (i === 0) {
+          this.pc.ctx.lineTo(x, y);
+        } else {
+          const prevX = x - stepWidth;
+          const prevY = burnerTopY + ((i - 1) % 2 === 0 ? 0 : -10) + (10 * Math.sin(timeSeed + (i - 1) * 1.5) + 5 * Math.cos(timeSeed * 0.7 + (i - 1)));
+          const cpX = (prevX + x) / 2;
+          const cpY = Math.min(prevY, y) - 15;
+          this.pc.ctx.quadraticCurveTo(cpX, cpY, x, y);
+        }
+      }
+      this.pc.ctx.lineTo(burnerCenterX + burnerWidth / 2, burnerTopY + burnerHeight);
+      this.pc.ctx.closePath();
+
+      const flameGrad = this.pc.ctx.createLinearGradient(burnerCenterX, burnerTopY - 15, burnerCenterX, burnerTopY + burnerHeight);
+      flameGrad.addColorStop(0, 'rgba(253, 224, 71, 0.9)');  // Yellow
+      flameGrad.addColorStop(0.4, 'rgba(249, 115, 22, 0.85)'); // Orange
+      flameGrad.addColorStop(0.8, 'rgba(239, 68, 68, 0.7)');   // Red
+      flameGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+
+      this.pc.ctx.fillStyle = flameGrad;
+      this.pc.ctx.shadowBlur = 15;
+      this.pc.ctx.shadowColor = '#f97316';
+      this.pc.ctx.fill();
+      this.pc.ctx.restore();
+    } else if (this.heatTransfer === 'cooling') {
+      this.pc.ctx.save();
+      const iceBlockSize = 20;
+      const burnerCenterX = (sLeftBottom.x + sRightTop.x) / 2;
+      const iceTopY = sLeftBottom.y + 10;
+
+      const numBlocks = Math.max(3, Math.min(6, Math.floor(boxW / (iceBlockSize + 6))));
+      const spacing = 6;
+      const totalWidth = numBlocks * iceBlockSize + (numBlocks - 1) * spacing;
+      const startX = burnerCenterX - totalWidth / 2;
+
+      for (let i = 0; i < numBlocks; i++) {
+        const x = startX + i * (iceBlockSize + spacing);
+        const y = iceTopY + (i % 2 === 0 ? 2 : 5);
+
+        this.pc.ctx.fillStyle = 'rgba(186, 230, 253, 0.75)';
+        this.pc.ctx.strokeStyle = 'rgba(125, 211, 252, 0.9)';
+        this.pc.ctx.lineWidth = 1.5;
+
+        const radius = 4;
+        this.pc.ctx.beginPath();
+        this.pc.ctx.moveTo(x + radius, y);
+        this.pc.ctx.lineTo(x + iceBlockSize - radius, y);
+        this.pc.ctx.quadraticCurveTo(x + iceBlockSize, y, x + iceBlockSize, y + radius);
+        this.pc.ctx.lineTo(x + iceBlockSize, y + iceBlockSize - radius);
+        this.pc.ctx.quadraticCurveTo(x + iceBlockSize, y + iceBlockSize, x + iceBlockSize - radius, y + iceBlockSize);
+        this.pc.ctx.lineTo(x + radius, y + iceBlockSize);
+        this.pc.ctx.quadraticCurveTo(x, y + iceBlockSize, x, y + iceBlockSize - radius);
+        this.pc.ctx.lineTo(x, y + radius);
+        this.pc.ctx.quadraticCurveTo(x, y, x + radius, y);
+        this.pc.ctx.closePath();
+        this.pc.ctx.fill();
+        this.pc.ctx.stroke();
+
+        this.pc.ctx.strokeStyle = '#ffffff';
+        this.pc.ctx.lineWidth = 2;
+        this.pc.ctx.beginPath();
+        this.pc.ctx.moveTo(x + 3, y + iceBlockSize - 5);
+        this.pc.ctx.lineTo(x + 3, y + 3);
+        this.pc.ctx.lineTo(x + iceBlockSize - 5, y + 3);
+        this.pc.ctx.stroke();
+      }
+      this.pc.ctx.restore();
+    }
+
+    // 4. Draw central barrier in diffusion mode
     if (this.config.mode === 'diffusion' && this.yBarrier < this.yTop) {
       const sBarrierBottom = this.pc.toScreen(xMid, this.yBarrier);
       const sBarrierTop = this.pc.toScreen(xMid, this.yTop);
@@ -423,7 +533,7 @@ export class ThermoDiagram {
       this.pc.ctx.restore();
     }
 
-    // 4. Draw particles
+    // 5. Draw particles
     for (const p of this.particles) {
       const sPos = this.pc.toScreen(p.x, p.y);
       const radiusScreen = p.radius * this.pc.scale;
@@ -436,6 +546,64 @@ export class ThermoDiagram {
       this.pc.ctx.arc(sPos.x, sPos.y, radiusScreen, 0, 2 * Math.PI);
       this.pc.ctx.fill();
       this.pc.ctx.stroke();
+      this.pc.ctx.restore();
+    }
+
+    // 6. Draw movable piston head and horizontal shaft/rod
+    if (this.config.mode !== 'diffusion') {
+      const pistonWidth = 0.4;
+      const sPistonLeft = sRightTop.x;
+      const sPistonWidth = pistonWidth * this.pc.scale;
+      const sPistonTop = sRightTop.y;
+
+      // Draw rod extending to the right
+      const rodRightX = xMax + 1.5;
+      const sRodLeft = sPistonLeft + sPistonWidth / 2;
+      const sRodRight = this.pc.toScreen(rodRightX, 0).x;
+      const sRodY = this.pc.toScreen(0, 0).y;
+      const sRodThickness = 0.25 * this.pc.scale;
+
+      this.pc.ctx.save();
+      const rodGrad = this.pc.ctx.createLinearGradient(sRodLeft, sRodY - sRodThickness / 2, sRodLeft, sRodY + sRodThickness / 2);
+      rodGrad.addColorStop(0, '#708090');
+      rodGrad.addColorStop(0.3, '#d1d5db');
+      rodGrad.addColorStop(0.7, '#9ca3af');
+      rodGrad.addColorStop(1, '#4b5563');
+
+      this.pc.ctx.fillStyle = rodGrad;
+      this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
+      this.pc.ctx.lineWidth = 1.5;
+      this.pc.ctx.fillRect(sRodLeft, sRodY - sRodThickness / 2, sRodRight - sRodLeft, sRodThickness);
+      this.pc.ctx.strokeRect(sRodLeft, sRodY - sRodThickness / 2, sRodRight - sRodLeft, sRodThickness);
+      this.pc.ctx.restore();
+
+      // Draw piston head slab
+      this.pc.ctx.save();
+      const pistonGrad = this.pc.ctx.createLinearGradient(sPistonLeft, sPistonTop, sPistonLeft + sPistonWidth, sPistonTop);
+      pistonGrad.addColorStop(0, '#4b5563');
+      pistonGrad.addColorStop(0.2, '#9ca3af');
+      pistonGrad.addColorStop(0.5, '#f3f4f6');
+      pistonGrad.addColorStop(0.8, '#9ca3af');
+      pistonGrad.addColorStop(1, '#374151');
+
+      this.pc.ctx.fillStyle = pistonGrad;
+      this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? '#f3f4f6' : '#1f2937';
+      this.pc.ctx.lineWidth = 2;
+
+      this.pc.ctx.fillRect(sPistonLeft, sPistonTop, sPistonWidth, boxH);
+      this.pc.ctx.strokeRect(sPistonLeft, sPistonTop, sPistonWidth, boxH);
+
+      // Draw grooves
+      this.pc.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+      this.pc.ctx.lineWidth = 3;
+      const ringSpacing = boxH / 4;
+      for (let i = 1; i <= 3; i++) {
+        const ringY = sPistonTop + i * ringSpacing;
+        this.pc.ctx.beginPath();
+        this.pc.ctx.moveTo(sPistonLeft + 2, ringY);
+        this.pc.ctx.lineTo(sPistonLeft + sPistonWidth - 2, ringY);
+        this.pc.ctx.stroke();
+      }
       this.pc.ctx.restore();
     }
   }
