@@ -50,6 +50,19 @@
 ### Approach
 - **Entropy Calculation**: Grid-based Shannon entropy of mixing ($4 \times 4$ spatial cells) to produce a smooth, physically accurate rising entropy curve during diffusion.
 
+## Phase 5 Decisions
+
+**Date:** 2026-06-08
+
+### Scope
+- **Plots**: Real-time velocity histogram with theoretical Maxwell-Boltzmann curve overlay, PV diagram tracing with active stage color indicators, and entropy curve tracking.
+- **Controls**: Sliders for Temperature ($T$), Number of particles ($N$), Volume ($V$), and Heat Input ($Q$).
+
+### Approach
+- **Performance**: High-speed binning loops to render live velocity histograms efficiently.
+- **Quality**: Verified using strict compiler verification scripts (`npm run verify`).
+
+
 
 
 
