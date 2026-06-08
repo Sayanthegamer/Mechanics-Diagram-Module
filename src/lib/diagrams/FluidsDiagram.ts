@@ -6,6 +6,17 @@ export interface FluidsState {
   blockY: number;
   blockVy: number;
   pressureGauge: number;
+  // Pascal
+  piston1Y?: number;
+  piston2Y?: number;
+  // Bernoulli
+  v1?: number;
+  v2?: number;
+  deltaP?: number;
+  // Viscosity
+  sphereY?: number;
+  sphereVy?: number;
+  terminalVy?: number;
 }
 
 interface StreamlineParticle {
@@ -249,11 +260,42 @@ export class FluidsDiagram {
 
     // Append to graph history
     const pressure = this.getProbePressure();
+    let piston1Y = 0;
+    let piston2Y = 0;
+    let v1 = 0;
+    let v2 = 0;
+    let deltaP = 0;
+    let terminalVy = 0;
+
+    if (this.config.mode === 'pascal') {
+      const areaRatio = this.config.pascal.area1 / this.config.pascal.area2;
+      piston1Y = -this.pistonOffset;
+      piston2Y = this.pistonOffset * areaRatio;
+    } else if (this.config.mode === 'bernoulli') {
+      const { flowRate, diameter1, diameter2, fluidDensity } = this.config.bernoulli;
+      const a1 = Math.PI * (diameter1 / 2) * (diameter1 / 2);
+      const a2 = Math.PI * (diameter2 / 2) * (diameter2 / 2);
+      v1 = flowRate / a1;
+      v2 = flowRate / a2;
+      deltaP = (0.5 * fluidDensity * (v2 * v2 - v1 * v1)) / 1000; // in kPa
+    } else if (this.config.mode === 'viscosity') {
+      const { fluidDensity, viscosity, sphereRadius, sphereDensity, gravity } = this.config.viscosity;
+      terminalVy = (2 * sphereRadius * sphereRadius * gravity * (sphereDensity - fluidDensity)) / (9 * viscosity);
+    }
+
     this.history.push({
       t: this.t,
       blockY: this.config.mode === 'viscosity' ? this.sphereY : this.blockY,
       blockVy: this.config.mode === 'viscosity' ? this.sphereVy : this.blockVy,
-      pressureGauge: pressure
+      pressureGauge: pressure,
+      piston1Y,
+      piston2Y,
+      v1,
+      v2,
+      deltaP,
+      sphereY: this.sphereY,
+      sphereVy: this.sphereVy,
+      terminalVy
     });
     if (this.history.length > this.maxHistory) {
       this.history.shift();
