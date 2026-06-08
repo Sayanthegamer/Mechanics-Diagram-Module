@@ -442,6 +442,8 @@ let simSpeed: number = 1.0;
 let lastTime: number = 0;
 let isDragging: boolean = false;
 let dragTarget: string | null = null;
+let lastPanX = 0;
+let lastPanY = 0;
 
 // Render Canvas classes
 let pc: PhysicsCanvas;
@@ -724,6 +726,14 @@ function handleInteractionStart(clientX: number, clientY: number) {
       return;
     }
   }
+
+  // Viewport panning fallback if no interactive element is grabbed
+  if (!isDragging) {
+    isDragging = true;
+    dragTarget = 'pan';
+    lastPanX = clientX;
+    lastPanY = clientY;
+  }
 }
 
 function handleInteractionMove(clientX: number, clientY: number) {
@@ -735,7 +745,15 @@ function handleInteractionMove(clientX: number, clientY: number) {
   if (isDragging && dragTarget) {
     pc.canvas.style.cursor = 'grabbing';
     
-    if (activeConfig.type === 'vector') {
+    if (dragTarget === 'pan') {
+      const dx = clientX - lastPanX;
+      const dy = clientY - lastPanY;
+      pc.panX += dx;
+      pc.panY += dy;
+      pc.resetOrigin();
+      lastPanX = clientX;
+      lastPanY = clientY;
+    } else if (activeConfig.type === 'vector') {
       const { vectors, operation } = activeConfig;
       if (operation === 'cross') {
         const scale3d = 40;
@@ -832,7 +850,7 @@ function handleInteractionMove(clientX: number, clientY: number) {
         applyConfig(activeConfig);
       }
     } else if (activeConfig.type === 'fluids' && dragTarget) {
-    const target = dragTarget as 'block' | 'probe' | 'piston1' | 'piston2';
+    const target = dragTarget as 'block' | 'probe' | 'piston1' | 'piston2' | 'sphere';
     fluidsDiagram.updateDrag(target, p);
     if (activeConfig.mode === 'pascal') {
       activeConfig.pascal.displacement1 = fluidsDiagram.pistonOffset;
@@ -948,6 +966,13 @@ function loadPreset(name: string) {
   // Sync Select inputs
   selectPreset.value = name;
 
+  // Reset viewport panning
+  if (pc) {
+    pc.panX = 0;
+    pc.panY = 0;
+    pc.resetOrigin();
+  }
+
   applyConfig(activeConfig);
 }
 
@@ -998,7 +1023,15 @@ function applyConfig(config: PhysicsConfig) {
     fluidsDiagram.setConfig(config);
     graphCard.classList.remove('hidden');
     selectGraphMode.classList.add('hidden');
-    graphTitle.innerText = 'Real-Time Graph: DEPTH PRESSURE / BLOCK DISPLACEMENT';
+    if (config.mode === 'buoyancy') {
+      graphTitle.innerText = 'Real-Time Graph: DEPTH PRESSURE / BLOCK DISPLACEMENT';
+    } else if (config.mode === 'pascal') {
+      graphTitle.innerText = 'Real-Time Graph: PISTON DISPLACEMENTS / PRESSURE';
+    } else if (config.mode === 'bernoulli') {
+      graphTitle.innerText = 'Real-Time Graph: VELOCITY & PRESSURE DROP';
+    } else if (config.mode === 'viscosity') {
+      graphTitle.innerText = 'Real-Time Graph: POSITION & VELOCITY CONVERGENCE';
+    }
   }
 
   // Generate controls UI
@@ -1434,7 +1467,7 @@ function drawActiveSimulation() {
     mechanicsDiagram.draw();
   } else if (activeConfig.type === 'fluids') {
     fluidsDiagram.draw(pc);
-    graphModule.drawFluids(fluidsDiagram.history);
+    graphModule.drawFluids(fluidsDiagram.history, activeConfig.mode);
   }
 }
 

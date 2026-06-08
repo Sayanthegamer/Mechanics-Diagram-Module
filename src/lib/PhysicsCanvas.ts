@@ -13,6 +13,8 @@ export class PhysicsCanvas {
   public originX: number = 0; // screen X of origin
   public originY: number = 0; // screen Y of origin
   public theme: 'light' | 'dark' = 'dark';
+  public panX: number = 0;
+  public panY: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -33,8 +35,8 @@ export class PhysicsCanvas {
   }
 
   public resetOrigin(): void {
-    this.originX = this.canvas.clientWidth / 2;
-    this.originY = this.canvas.clientHeight / 2;
+    this.originX = this.canvas.clientWidth / 2 + this.panX;
+    this.originY = this.canvas.clientHeight / 2 + this.panY;
   }
 
   public checkResize(): void {
