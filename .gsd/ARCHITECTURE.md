@@ -31,7 +31,7 @@ The Physics Diagrams & Simulation Module is a framework-free interactive web app
 
 ### 2. Core Drawing Engine
 - **File**: `src/lib/PhysicsCanvas.ts`
-- **Purpose**: A utility wrapper around the HTML5 Canvas 2D context. It manages physics-to-screen coordinate transforms, grid layouts (both cartesian and polar), vector arrow rendering (with components, labels, and arcs), and complex geometric primitives (blocks, pulleys, coils/springs, and inclined wedges).
+- **Purpose**: A utility wrapper around the HTML5 Canvas 2D context. It manages physics-to-screen coordinate transforms, viewport panning offsets (`panX`, `panY`), grid layouts (both cartesian and polar), vector arrow rendering (with components, labels, and arcs), and complex geometric primitives (blocks, pulleys, coils/springs, and inclined wedges).
 
 ### 3. Diagram & Simulation Engines (`src/lib/diagrams/`)
 Each diagram class follows a unified interface: `setConfig(config)`, `resetState()`, `step(dt)`, and `draw(canvas)`.
@@ -55,11 +55,13 @@ Each diagram class follows a unified interface: `setConfig(config)`, `resetState
     3. Collisions (1D and 2D) using coefficient of restitution ($e$) and particle spark effects on impact.
     4. Circular motion (vertical loops with conservation of energy tension $T(\theta) = \frac{mv^2}{R} + mg\cos\theta$ and uniform horizontal orbits).
 - **FluidsDiagram.ts**:
-  - Simulates fluid mechanics scenarios (Buoyancy floating/sinking block lab with absolute/gauge pressure probe and Pascal hydraulic press).
+  - Simulates fluid mechanics scenarios (Buoyancy floating block lab with pressure probe, Pascal hydraulic press, Bernoulli pipe Venturi flow, and Viscous drag falling sphere).
   - Calculates submerged block volumes, buoyancy force vectors, and viscous fluid damping to stabilize oscillations.
   - Implements hydraulic cylinder volume conservation constraint equations.
+  - Solves Bernoulli Venturi velocity and pressure columns.
+  - Models falling sphere force vectors (gravity, buoyancy, drag) and terminal velocity convergence.
 - **GraphModule.ts**:
-  - Plots real-time data points (kinematics, energies, phase space orbits) on a separate HTML5 Canvas.
+  - Plots real-time data points (kinematics, energies, phase space orbits, fluid displacements, flow speeds, and pressures) on a separate HTML5 Canvas. Supports customized scaling and legends for all Fluids presets.
 
 ### 4. Interactive & Accessibility Subsystem
 - **Files**: `src/main.ts`
