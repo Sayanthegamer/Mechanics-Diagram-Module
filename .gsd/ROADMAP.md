@@ -16,7 +16,7 @@
 **Objective**: Build a high-performance 2D particle-collision engine in a customizable container to simulate pressure, volume, and temperature relations.
 
 ### Phase 2: Piston Engine Mechanics & Thermodynamic Processes
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Implement the movable piston chamber and solve the equations of state for Isothermal, Isobaric, Isochoric, and Adiabatic processes.
 
 ### Phase 3: Carnot Cycles & State Diagrams
