@@ -12,7 +12,7 @@
 ## Phases
 
 ### Phase 1: 2D Gas Molecular Dynamics & Particle Physics
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Build a high-performance 2D particle-collision engine in a customizable container to simulate pressure, volume, and temperature relations.
 
 ### Phase 2: Piston Engine Mechanics & Thermodynamic Processes
