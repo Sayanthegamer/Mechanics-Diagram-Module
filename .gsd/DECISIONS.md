@@ -28,4 +28,16 @@
 - **Thermodynamic Solver**: Formula-driven macroscopic state trajectory to ensure perfect textbook curves, with microscopic particle velocities scaled dynamically to match the macroscopic temperature $T$ at each frame.
 - **Process Support**: Implement transitions for Isothermal ($T=\text{const}$), Isobaric ($P=\text{const}$), Isochoric ($V=\text{const}$), and Adiabatic ($Q=0$).
 
+## Phase 3 Decisions
+
+**Date:** 2026-06-08
+
+### Scope
+- **Cycle Type**: Carnot Cycle (focusing on standard isothermal and adiabatic transitions).
+- **Automation Control**: Finite State Machine (FSM) driving time-based cycle automation (e.g. 3-4s per step) with play/pause and manual stage-stepping button controls.
+
+### Approach
+- **PV Diagram Tracing**: Render a persistent closed-loop trace of the Carnot cycle on the graph canvas, showing a dynamic state pointer moving along the paths in real-time.
+
+
 
