@@ -1502,6 +1502,68 @@ function renderSliders(config: PhysicsConfig) {
         gravityDiagram.setConfig(config);
       });
     }
+  } else if (config.type === 'thermo') {
+    if (config.mode === 'kinetic-theory') {
+      addSlider('Temperature T', 0.5, 10.0, 0.1, config.temperature, (v) => {
+        config.temperature = v;
+      });
+      addSlider('Particle Count N', 10, 150, 5, config.particleCount, (v) => {
+        config.particleCount = v;
+        thermoDiagram.setConfig(config);
+      });
+      addSlider('Volume V', 1.0, 5.0, 0.1, config.volume, (v) => {
+        config.volume = v;
+      });
+    } else if (config.mode === 'piston-engine') {
+      addSlider('Volume V', 1.0, 5.0, 0.1, config.volume, (v) => {
+        config.volume = v;
+      });
+      const modes: ('none' | 'isothermal' | 'isobaric' | 'isochoric' | 'adiabatic')[] = ['none', 'isothermal', 'isobaric', 'isochoric', 'adiabatic'];
+      const currentModeIdx = modes.indexOf(thermoDiagram.activeProcess);
+      addSlider('Process (0=None,1=Isotherm,2=Isobar,3=Isochor,4=Adiabat)', 0, 4, 1, currentModeIdx >= 0 ? currentModeIdx : 0, (v) => {
+        const mode = modes[Math.round(v)];
+        thermoDiagram.activeProcess = mode;
+        thermoDiagram.captureReferenceState();
+      });
+      const heatModes: ('none' | 'heating' | 'cooling')[] = ['none', 'heating', 'cooling'];
+      const currentHeatIdx = heatModes.indexOf(thermoDiagram.heatTransfer);
+      addSlider('Heat (0=None, 1=Heating, 2=Cooling)', 0, 2, 1, currentHeatIdx >= 0 ? currentHeatIdx : 0, (v) => {
+        const hMode = heatModes[Math.round(v)];
+        thermoDiagram.heatTransfer = hMode;
+      });
+      addSlider('Carnot Cycle (0=Off, 1=On)', 0, 1, 1, config.autoCycle ? 1 : 0, (v) => {
+        const auto = (v === 1);
+        config.autoCycle = auto;
+        thermoDiagram.autoCycle = auto;
+        if (auto) {
+          thermoDiagram.cycleStage = 0;
+          thermoDiagram.stageTimer = 0;
+          thermoDiagram.captureReferenceState();
+        }
+      });
+      addSlider('Temperature T', 0.5, 10.0, 0.1, config.temperature, (v) => {
+        config.temperature = v;
+      });
+      addSlider('Particle Count N', 10, 150, 5, config.particleCount, (v) => {
+        config.particleCount = v;
+        thermoDiagram.setConfig(config);
+      });
+    } else if (config.mode === 'diffusion') {
+      addSlider('Barrier (0=Closed, 1=Open)', 0, 1, 1, thermoDiagram.barrierClosed ? 0 : 1, (v) => {
+        if (v === 1) {
+          thermoDiagram.openBarrier();
+        } else {
+          thermoDiagram.closeBarrier();
+        }
+      });
+      addSlider('Temperature T', 0.5, 10.0, 0.1, config.temperature, (v) => {
+        config.temperature = v;
+      });
+      addSlider('Particle Count N', 10, 150, 5, config.particleCount, (v) => {
+        config.particleCount = v;
+        thermoDiagram.setConfig(config);
+      });
+    }
   }
 }
 
