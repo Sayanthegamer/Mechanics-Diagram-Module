@@ -1107,8 +1107,10 @@ function applyConfig(config: PhysicsConfig) {
     }
   } else if (config.type === 'gravity') {
     gravityDiagram.setConfig(config);
-    graphCard.classList.add('hidden');
+    graphCard.classList.remove('hidden');
     selectGraphMode.classList.add('hidden');
+    graphModule.mode = 'energy';
+    graphTitle.innerText = 'Real-Time Graph: ENERGY CONSERVATION';
   }
 
   // Generate controls UI
@@ -1613,6 +1615,7 @@ function drawActiveSimulation() {
     graphModule.drawFluids(fluidsDiagram.history, activeConfig.mode);
   } else if (activeConfig.type === 'gravity') {
     gravityDiagram.draw();
+    graphModule.draw(gravityDiagram.history);
   }
 }
 
