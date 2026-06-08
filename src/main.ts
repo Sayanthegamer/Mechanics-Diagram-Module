@@ -1150,12 +1150,16 @@ function applyConfig(config: PhysicsConfig) {
   } else if (config.type === 'thermo') {
     thermoDiagram.setConfig(config);
     graphCard.classList.remove('hidden');
-    selectGraphMode.classList.add('hidden');
     if (config.mode === 'kinetic-theory') {
+      selectGraphMode.classList.add('hidden');
       graphTitle.innerText = 'Real-Time Graph: PARTICLE SPEED DISTRIBUTION (RAYLEIGH)';
     } else if (config.mode === 'piston-engine') {
+      selectGraphMode.classList.remove('hidden');
+      graphModule.mode = 'pv-diagram';
+      selectGraphMode.value = 'pv-diagram';
       graphTitle.innerText = 'Real-Time Graph: PRESSURE-VOLUME (P-V) DIAGRAM';
     } else if (config.mode === 'diffusion') {
+      selectGraphMode.classList.add('hidden');
       graphTitle.innerText = 'Real-Time Graph: SHANNON MIXING ENTROPY';
     }
   }
@@ -1183,6 +1187,9 @@ function updateTitles(config: PhysicsConfig) {
     canvasTitle.innerText = `Gravitation & Orbital Mechanics: ${config.mode.toUpperCase()}`;
   } else if (config.type === 'thermo') {
     canvasTitle.innerText = `Thermodynamics & Kinetic Theory: ${config.mode.replace(/-/g, ' ').toUpperCase()}`;
+    if (config.mode === 'piston-engine') {
+      graphTitle.innerText = `Real-Time Graph: ${graphModule.mode === 'pv-diagram' ? 'PRESSURE-VOLUME (P-V) DIAGRAM' : 'TEMPERATURE-ENTROPY (T-S) DIAGRAM'}`;
+    }
   }
 }
 
@@ -1540,7 +1547,13 @@ function renderSliders(config: PhysicsConfig) {
           thermoDiagram.stageTimer = 0;
           thermoDiagram.captureReferenceState();
         }
+        renderSliders(config);
       });
+      if (config.autoCycle) {
+        addSlider('Cycle Step Duration (s)', 1.0, 6.0, 0.5, thermoDiagram.stageDuration, (v) => {
+          thermoDiagram.stageDuration = v;
+        });
+      }
       addSlider('Temperature T', 0.5, 10.0, 0.1, config.temperature, (v) => {
         config.temperature = v;
       });
@@ -1627,6 +1640,8 @@ function handleGraphModeChange() {
   updateTitles(activeConfig);
   if (activeConfig.type === 'shm') {
     graphModule.draw(shmDiagram.history);
+  } else if (activeConfig.type === 'thermo') {
+    graphModule.drawThermo(thermoDiagram);
   }
 }
 

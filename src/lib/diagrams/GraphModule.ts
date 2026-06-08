@@ -3,7 +3,7 @@ import type { FbdState } from './FbdDiagram';
 import type { FluidsState } from './FluidsDiagram';
 import type { ThermoDiagram } from './ThermoDiagram';
 
-export type GraphMode = 'kinematics' | 'energy' | 'phase-space';
+export type GraphMode = 'kinematics' | 'energy' | 'phase-space' | 'pv-diagram' | 'ts-diagram';
 
 export interface EnergyStatePoint {
   t: number;
@@ -808,156 +808,338 @@ export class GraphModule {
       };
       drawLegendItem('Heavy Species (A)', '#ef4444', 0);
       drawLegendItem('Light Species (B)', '#3b82f6', 1);
+    } else if (mode === 'piston-engine') {
+      if (this.mode === 'ts-diagram') {
+        // 2b. Temperature-Entropy (TS) Diagram
+        let sMin = 2.5;
+        let sMax = 3.5;
+        let tMin = 2.0;
+        let tMax = 7.0;
 
-    } else if (mode === 'piston-engine') {
-      // 2. Pressure-Volume (PV) Diagram
-      let yMin = 0;
-      let yMax = 300;
-      const pValues: number[] = [];
+        const sVals: number[] = [];
+        const tVals: number[] = [];
 
-      for (const pt of diagram.history) {
-        if (pt.p !== undefined) pValues.push(pt.p);
-      }
-      if (diagram.autoCycle) {
-        const loop = diagram.getCarnotLoopPoints();
-        for (const pt of loop) pValues.push(pt.y);
-      }
+        const calcEntropy = (t: number, v: number) => {
+          const safeT = Math.max(0.1, t);
+          const safeV = Math.max(0.1, v);
+          return 1.5 * Math.log(safeT) + Math.log(safeV);
+        };
 
-      if (pValues.length > 0) {
-        const maxP = Math.max(...pValues);
-        const minP = Math.min(...pValues);
-        const range = maxP - minP;
-        yMin = Math.max(0, minP - range * 0.15);
-        yMax = maxP + range * 0.15;
-        if (yMax - yMin < 10) {
-          yMin = Math.max(0, yMin - 10);
-          yMax += 10;
-        }
-      }
+        const N = diagram.particles.length > 0 ? diagram.particles.length : 60;
 
-      const getXScreen = (v: number) => padding.left + ((v - 1.0) / 4.0) * graphWidth;
-      const getYScreen = (p: number) => padding.top + (1.0 - (p - yMin) / (yMax - yMin)) * graphHeight;
-
-      // Draw Grid divisions
-      this.ctx.strokeStyle = gridColor;
-      this.ctx.lineWidth = 1;
-
-      // Y Grid
-      for (let i = 0; i <= 4; i++) {
-        const val = yMin + (i / 4) * (yMax - yMin);
-        const sy = getYScreen(val);
-        this.ctx.beginPath();
-        this.ctx.moveTo(padding.left, sy);
-        this.ctx.lineTo(width - padding.right, sy);
-        this.ctx.stroke();
-
-        this.ctx.fillStyle = textColor;
-        this.ctx.font = '9px Outfit, sans-serif';
-        this.ctx.textAlign = 'right';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(val.toFixed(1), padding.left - 8, sy);
-      }
-
-      // X Grid (Volume 1.0 to 5.0)
-      for (let v = 1.0; v <= 5.0; v += 1.0) {
-        const sx = getXScreen(v);
-        this.ctx.beginPath();
-        this.ctx.moveTo(sx, padding.top);
-        this.ctx.lineTo(sx, height - padding.bottom);
-        this.ctx.stroke();
-
-        this.ctx.fillStyle = textColor;
-        this.ctx.font = '9px Outfit, sans-serif';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'top';
-        this.ctx.fillText(`V=${v.toFixed(1)}`, sx, height - padding.bottom + 6);
-      }
-
-      // Draw Carnot Loop Segment Paths
-      if (diagram.autoCycle) {
-        const loop = diagram.getCarnotLoopPoints();
-        if (loop.length >= 100) {
-          const drawStageSegment = (startIdx: number, endIdx: number, color: string) => {
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = 3;
-            this.ctx.setLineDash([4, 3]);
-
-            this.ctx.moveTo(getXScreen(loop[startIdx].x), getYScreen(loop[startIdx].y));
-            for (let idx = startIdx + 1; idx <= endIdx; idx++) {
-              this.ctx.lineTo(getXScreen(loop[idx].x), getYScreen(loop[idx].y));
-            }
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
-          };
-
-          // Stage 0: Isothermal Exp
-          drawStageSegment(0, 25, '#10b981');
-          // Stage 1: Adiabatic Exp
-          drawStageSegment(25, 50, '#eab308');
-          // Stage 2: Isothermal Comp
-          drawStageSegment(50, 75, '#3b82f6');
-          // Stage 3: Adiabatic Comp
-          drawStageSegment(75, 100, '#ef4444');
-        }
-      }
-
-      // Draw real-time trace path
-      if (diagram.history.length > 1) {
-        this.ctx.beginPath();
-        this.ctx.strokeStyle = '#8b5cf6';
-        this.ctx.lineWidth = 2.5;
-        let first = true;
         for (const pt of diagram.history) {
-          if (pt.v !== undefined && pt.p !== undefined) {
-            const sx = getXScreen(pt.v);
-            const sy = getYScreen(pt.p);
-            if (first) {
-              this.ctx.moveTo(sx, sy);
-              first = false;
-            } else {
-              this.ctx.lineTo(sx, sy);
-            }
+          if (pt.v !== undefined && pt.kineticEnergy !== undefined) {
+            const ptT = pt.kineticEnergy / N;
+            const ptS = calcEntropy(ptT, pt.v);
+            sVals.push(ptS);
+            tVals.push(ptT);
           }
         }
-        this.ctx.stroke();
-      }
 
-      // Draw current state tracking dot
-      const curV = diagram.volume;
-      const curP = diagram.pressure;
-      const dotX = getXScreen(curV);
-      const dotY = getYScreen(curP);
+        if (diagram.autoCycle) {
+          const loop = diagram.getCarnotLoopPoints();
+          for (const pt of loop) {
+            const ptT = (pt.y * pt.x) / N;
+            const ptS = calcEntropy(ptT, pt.x);
+            sVals.push(ptS);
+            tVals.push(ptT);
+          }
+        }
 
-      this.ctx.beginPath();
-      this.ctx.fillStyle = diagram.getCycleStageColor();
-      this.ctx.shadowColor = diagram.getCycleStageColor();
-      this.ctx.shadowBlur = 10;
-      this.ctx.arc(dotX, dotY, 6, 0, 2 * Math.PI);
-      this.ctx.fill();
-      this.ctx.shadowBlur = 0; // Reset shadow
+        if (sVals.length > 0) {
+          const maxS = Math.max(...sVals);
+          const minS = Math.min(...sVals);
+          const rangeS = maxS - minS;
+          sMin = minS - Math.max(0.08, rangeS * 0.15);
+          sMax = maxS + Math.max(0.08, rangeS * 0.15);
 
-      // Draw legend
-      const drawPistLegend = (label: string, color: string, idx: number) => {
-        const lx = padding.left + idx * 82;
-        const ly = padding.top - 12;
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(lx, ly - 3, 10, 6);
-        this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
-        this.ctx.font = 'bold 8px Outfit, sans-serif';
-        this.ctx.textAlign = 'left';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(label, lx + 14, ly);
-      };
-      if (diagram.autoCycle) {
-        drawPistLegend('Isotherm Exp', '#10b981', 0);
-        drawPistLegend('Adiabat Exp', '#eab308', 1);
-        drawPistLegend('Isotherm Comp', '#3b82f6', 2);
-        drawPistLegend('Adiabat Comp', '#ef4444', 3);
+          const maxT = Math.max(...tVals);
+          const minT = Math.min(...tVals);
+          const rangeT = maxT - minT;
+          tMin = Math.max(0.2, minT - Math.max(0.4, rangeT * 0.15));
+          tMax = maxT + Math.max(0.4, rangeT * 0.15);
+        }
+
+        const getXScreen = (s: number) => padding.left + ((s - sMin) / (sMax - sMin)) * graphWidth;
+        const getYScreen = (t: number) => padding.top + (1.0 - (t - tMin) / (tMax - tMin)) * graphHeight;
+
+        // Draw Grid divisions
+        this.ctx.strokeStyle = gridColor;
+        this.ctx.lineWidth = 1;
+
+        // Y Grid
+        for (let i = 0; i <= 4; i++) {
+          const val = tMin + (i / 4) * (tMax - tMin);
+          const sy = getYScreen(val);
+          this.ctx.beginPath();
+          this.ctx.moveTo(padding.left, sy);
+          this.ctx.lineTo(width - padding.right, sy);
+          this.ctx.stroke();
+
+          this.ctx.fillStyle = textColor;
+          this.ctx.font = '9px Outfit, sans-serif';
+          this.ctx.textAlign = 'right';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText(`T=${val.toFixed(1)}`, padding.left - 8, sy);
+        }
+
+        // X Grid
+        for (let i = 0; i <= 4; i++) {
+          const val = sMin + (i / 4) * (sMax - sMin);
+          const sx = getXScreen(val);
+          this.ctx.beginPath();
+          this.ctx.moveTo(sx, padding.top);
+          this.ctx.lineTo(sx, height - padding.bottom);
+          this.ctx.stroke();
+
+          this.ctx.fillStyle = textColor;
+          this.ctx.font = '9px Outfit, sans-serif';
+          this.ctx.textAlign = 'center';
+          this.ctx.textBaseline = 'top';
+          this.ctx.fillText(`S=${val.toFixed(2)}`, sx, height - padding.bottom + 6);
+        }
+
+        // Draw Carnot Loop Segment Paths in T-S Coordinates
+        if (diagram.autoCycle) {
+          const loop = diagram.getCarnotLoopPoints();
+          if (loop.length >= 100) {
+            const drawStageSegment = (startIdx: number, endIdx: number, color: string) => {
+              this.ctx.beginPath();
+              this.ctx.strokeStyle = color;
+              this.ctx.lineWidth = 3;
+              this.ctx.setLineDash([4, 3]);
+
+              const firstT = (loop[startIdx].y * loop[startIdx].x) / N;
+              const firstS = calcEntropy(firstT, loop[startIdx].x);
+              this.ctx.moveTo(getXScreen(firstS), getYScreen(firstT));
+
+              for (let idx = startIdx + 1; idx <= endIdx; idx++) {
+                const ptT = (loop[idx].y * loop[idx].x) / N;
+                const ptS = calcEntropy(ptT, loop[idx].x);
+                this.ctx.lineTo(getXScreen(ptS), getYScreen(ptT));
+              }
+              this.ctx.stroke();
+              this.ctx.setLineDash([]);
+            };
+
+            // Stage 0: Isothermal Exp
+            drawStageSegment(0, 25, '#10b981');
+            // Stage 1: Adiabatic Exp
+            drawStageSegment(25, 50, '#eab308');
+            // Stage 2: Isothermal Comp
+            drawStageSegment(50, 75, '#3b82f6');
+            // Stage 3: Adiabatic Comp
+            drawStageSegment(75, 100, '#ef4444');
+          }
+        }
+
+        // Draw real-time trace path
+        if (diagram.history.length > 1) {
+          this.ctx.beginPath();
+          this.ctx.strokeStyle = '#8b5cf6';
+          this.ctx.lineWidth = 2.5;
+          let first = true;
+          for (const pt of diagram.history) {
+            if (pt.v !== undefined && pt.kineticEnergy !== undefined) {
+              const ptT = pt.kineticEnergy / N;
+              const ptS = calcEntropy(ptT, pt.v);
+              const sx = getXScreen(ptS);
+              const sy = getYScreen(ptT);
+              if (first) {
+                this.ctx.moveTo(sx, sy);
+                first = false;
+              } else {
+                this.ctx.lineTo(sx, sy);
+              }
+            }
+          }
+          this.ctx.stroke();
+        }
+
+        // Draw current state tracking dot
+        const curT = diagram.temperature;
+        const curS = calcEntropy(curT, diagram.volume);
+        const dotX = getXScreen(curS);
+        const dotY = getYScreen(curT);
+
+        this.ctx.beginPath();
+        this.ctx.fillStyle = diagram.getCycleStageColor();
+        this.ctx.shadowColor = diagram.getCycleStageColor();
+        this.ctx.shadowBlur = 10;
+        this.ctx.arc(dotX, dotY, 6, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.shadowBlur = 0; // Reset shadow
+
+        // Draw legend
+        const drawPistLegend = (label: string, color: string, idx: number) => {
+          const lx = padding.left + idx * 82;
+          const ly = padding.top - 12;
+          this.ctx.fillStyle = color;
+          this.ctx.fillRect(lx, ly - 3, 10, 6);
+          this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+          this.ctx.font = 'bold 8px Outfit, sans-serif';
+          this.ctx.textAlign = 'left';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText(label, lx + 14, ly);
+        };
+        if (diagram.autoCycle) {
+          drawPistLegend('Isotherm Exp', '#10b981', 0);
+          drawPistLegend('Adiabat Exp', '#eab308', 1);
+          drawPistLegend('Isotherm Comp', '#3b82f6', 2);
+          drawPistLegend('Adiabat Comp', '#ef4444', 3);
+        } else {
+          drawPistLegend('TS State Trace', '#8b5cf6', 0);
+        }
+
       } else {
-        drawPistLegend('PV State Trace', '#8b5cf6', 0);
-      }
+        // 2. Pressure-Volume (PV) Diagram
+        let yMin = 0;
+        let yMax = 300;
+        const pValues: number[] = [];
 
+        for (const pt of diagram.history) {
+          if (pt.p !== undefined) pValues.push(pt.p);
+        }
+        if (diagram.autoCycle) {
+          const loop = diagram.getCarnotLoopPoints();
+          for (const pt of loop) pValues.push(pt.y);
+        }
+
+        if (pValues.length > 0) {
+          const maxP = Math.max(...pValues);
+          const minP = Math.min(...pValues);
+          const range = maxP - minP;
+          yMin = Math.max(0, minP - range * 0.15);
+          yMax = maxP + range * 0.15;
+          if (yMax - yMin < 10) {
+            yMin = Math.max(0, yMin - 10);
+            yMax += 10;
+          }
+        }
+
+        const getXScreen = (v: number) => padding.left + ((v - 1.0) / 4.0) * graphWidth;
+        const getYScreen = (p: number) => padding.top + (1.0 - (p - yMin) / (yMax - yMin)) * graphHeight;
+
+        // Draw Grid divisions
+        this.ctx.strokeStyle = gridColor;
+        this.ctx.lineWidth = 1;
+
+        // Y Grid
+        for (let i = 0; i <= 4; i++) {
+          const val = yMin + (i / 4) * (yMax - yMin);
+          const sy = getYScreen(val);
+          this.ctx.beginPath();
+          this.ctx.moveTo(padding.left, sy);
+          this.ctx.lineTo(width - padding.right, sy);
+          this.ctx.stroke();
+
+          this.ctx.fillStyle = textColor;
+          this.ctx.font = '9px Outfit, sans-serif';
+          this.ctx.textAlign = 'right';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText(val.toFixed(1), padding.left - 8, sy);
+        }
+
+        // X Grid (Volume 1.0 to 5.0)
+        for (let v = 1.0; v <= 5.0; v += 1.0) {
+          const sx = getXScreen(v);
+          this.ctx.beginPath();
+          this.ctx.moveTo(sx, padding.top);
+          this.ctx.lineTo(sx, height - padding.bottom);
+          this.ctx.stroke();
+
+          this.ctx.fillStyle = textColor;
+          this.ctx.font = '9px Outfit, sans-serif';
+          this.ctx.textAlign = 'center';
+          this.ctx.textBaseline = 'top';
+          this.ctx.fillText(`V=${v.toFixed(1)}`, sx, height - padding.bottom + 6);
+        }
+
+        // Draw Carnot Loop Segment Paths
+        if (diagram.autoCycle) {
+          const loop = diagram.getCarnotLoopPoints();
+          if (loop.length >= 100) {
+            const drawStageSegment = (startIdx: number, endIdx: number, color: string) => {
+              this.ctx.beginPath();
+              this.ctx.strokeStyle = color;
+              this.ctx.lineWidth = 3;
+              this.ctx.setLineDash([4, 3]);
+
+              this.ctx.moveTo(getXScreen(loop[startIdx].x), getYScreen(loop[startIdx].y));
+              for (let idx = startIdx + 1; idx <= endIdx; idx++) {
+                this.ctx.lineTo(getXScreen(loop[idx].x), getYScreen(loop[idx].y));
+              }
+              this.ctx.stroke();
+              this.ctx.setLineDash([]);
+            };
+
+            // Stage 0: Isothermal Exp
+            drawStageSegment(0, 25, '#10b981');
+            // Stage 1: Adiabatic Exp
+            drawStageSegment(25, 50, '#eab308');
+            // Stage 2: Isothermal Comp
+            drawStageSegment(50, 75, '#3b82f6');
+            // Stage 3: Adiabatic Comp
+            drawStageSegment(75, 100, '#ef4444');
+          }
+        }
+
+        // Draw real-time trace path
+        if (diagram.history.length > 1) {
+          this.ctx.beginPath();
+          this.ctx.strokeStyle = '#8b5cf6';
+          this.ctx.lineWidth = 2.5;
+          let first = true;
+          for (const pt of diagram.history) {
+            if (pt.v !== undefined && pt.p !== undefined) {
+              const sx = getXScreen(pt.v);
+              const sy = getYScreen(pt.p);
+              if (first) {
+                this.ctx.moveTo(sx, sy);
+                first = false;
+              } else {
+                this.ctx.lineTo(sx, sy);
+              }
+            }
+          }
+          this.ctx.stroke();
+        }
+
+        // Draw current state tracking dot
+        const curV = diagram.volume;
+        const curP = diagram.pressure;
+        const dotX = getXScreen(curV);
+        const dotY = getYScreen(curP);
+
+        this.ctx.beginPath();
+        this.ctx.fillStyle = diagram.getCycleStageColor();
+        this.ctx.shadowColor = diagram.getCycleStageColor();
+        this.ctx.shadowBlur = 10;
+        this.ctx.arc(dotX, dotY, 6, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.shadowBlur = 0; // Reset shadow
+
+        // Draw legend
+        const drawPistLegend = (label: string, color: string, idx: number) => {
+          const lx = padding.left + idx * 82;
+          const ly = padding.top - 12;
+          this.ctx.fillStyle = color;
+          this.ctx.fillRect(lx, ly - 3, 10, 6);
+          this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+          this.ctx.font = 'bold 8px Outfit, sans-serif';
+          this.ctx.textAlign = 'left';
+          this.ctx.textBaseline = 'middle';
+          this.ctx.fillText(label, lx + 14, ly);
+        };
+        if (diagram.autoCycle) {
+          drawPistLegend('Isotherm Exp', '#10b981', 0);
+          drawPistLegend('Adiabat Exp', '#eab308', 1);
+          drawPistLegend('Isotherm Comp', '#3b82f6', 2);
+          drawPistLegend('Adiabat Comp', '#ef4444', 3);
+        } else {
+          drawPistLegend('PV State Trace', '#8b5cf6', 0);
+        }
+      }
     } else if (mode === 'diffusion') {
       // 3. Shannon Entropy over time
       const yMin = 0.0;

@@ -21,8 +21,8 @@ Redesign the Carnot engine visualization to make it more intuitive and education
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Research and design T-S diagram mapping, gas color field, and flow arrows | Claude | ⬜ Todo | 2 |
-| Implement T-S diagram plot in GraphModule.ts and piston overlays in ThermoDiagram.ts | Claude | ⬜ Todo | 4 |
+| Research and design T-S diagram mapping, gas color field, and flow arrows | Claude | ✅ Done | 2 |
+| Implement T-S diagram plot in GraphModule.ts and piston overlays in ThermoDiagram.ts | Claude | 🔄 In Progress | 4 |
 | Add Carnot Speed slider and verify all changes build and compile | Claude | ⬜ Todo | 2 |
 
 ## Daily Log

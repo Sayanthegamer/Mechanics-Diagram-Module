@@ -42,7 +42,7 @@ export class ThermoDiagram {
   public autoCycle: boolean = false;
   public cycleStage: 0 | 1 | 2 | 3 = 0;
   public stageTimer: number = 0;
-  public readonly stageDuration: number = 3.0;
+  public stageDuration: number = 3.0;
 
   // Carnot cycle limits
   public readonly tHot: number = 6.0;
@@ -542,8 +542,30 @@ export class ThermoDiagram {
 
     // 1. Draw container chamber backfill (active gas volume area)
     this.pc.ctx.save();
-    this.pc.ctx.fillStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)';
-    this.pc.ctx.fillRect(sLeftBottom.x, sRightTop.y, boxW, boxH);
+    if (this.config.mode === 'diffusion') {
+      this.pc.ctx.fillStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)';
+      this.pc.ctx.fillRect(sLeftBottom.x, sRightTop.y, boxW, boxH);
+    } else {
+      // Scale temperature from [3.0, 6.0] to [0, 1] for interpolation
+      const k = Math.max(0, Math.min(1.0, (this.temperature - 3.0) / 3.0));
+      // Interpolate from Cyan (34, 211, 238) to Red (239, 68, 68)
+      const r = Math.round(34 + k * (239 - 34));
+      const g = Math.round(211 + k * (68 - 211));
+      const b = Math.round(238 + k * (68 - 238));
+      
+      const gasAlpha = this.pc.theme === 'dark' ? 0.22 : 0.16;
+      
+      const centerX = (sLeftBottom.x + sRightTop.x) / 2;
+      const centerY = (sLeftBottom.y + sRightTop.y) / 2;
+      const radius = Math.max(boxW, boxH) * 0.75;
+      
+      const grad = this.pc.ctx.createRadialGradient(centerX, centerY, 5, centerX, centerY, radius);
+      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${gasAlpha * 1.6})`);
+      grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${gasAlpha})`);
+      
+      this.pc.ctx.fillStyle = grad;
+      this.pc.ctx.fillRect(sLeftBottom.x, sRightTop.y, boxW, boxH);
+    }
     this.pc.ctx.restore();
 
     // 2. Draw outer container casing
@@ -748,6 +770,153 @@ export class ThermoDiagram {
         this.pc.ctx.stroke();
       }
       this.pc.ctx.restore();
+
+      // 3. Draw Heat and Work flow visual overlays (arrows & text)
+      const drawWavyArrowUp = (x: number, yStart: number, yEnd: number, color: string) => {
+        this.pc.ctx.save();
+        this.pc.ctx.strokeStyle = color;
+        this.pc.ctx.lineWidth = 3;
+        this.pc.ctx.beginPath();
+        this.pc.ctx.moveTo(x, yStart);
+        for (let sy = yStart; sy >= yEnd; sy -= 5) {
+          const sx = x + 5 * Math.sin((sy / 12) * Math.PI);
+          this.pc.ctx.lineTo(sx, sy);
+        }
+        this.pc.ctx.stroke();
+
+        // Arrowhead
+        this.pc.ctx.fillStyle = color;
+        this.pc.ctx.beginPath();
+        this.pc.ctx.moveTo(x - 5, yEnd + 6);
+        this.pc.ctx.lineTo(x + 5, yEnd + 6);
+        this.pc.ctx.lineTo(x, yEnd);
+        this.pc.ctx.closePath();
+        this.pc.ctx.fill();
+        this.pc.ctx.restore();
+      };
+
+      const drawWavyArrowDown = (x: number, yStart: number, yEnd: number, color: string) => {
+        this.pc.ctx.save();
+        this.pc.ctx.strokeStyle = color;
+        this.pc.ctx.lineWidth = 3;
+        this.pc.ctx.beginPath();
+        this.pc.ctx.moveTo(x, yStart);
+        for (let sy = yStart; sy <= yEnd; sy += 5) {
+          const sx = x + 5 * Math.sin((sy / 12) * Math.PI);
+          this.pc.ctx.lineTo(sx, sy);
+        }
+        this.pc.ctx.stroke();
+
+        // Arrowhead
+        this.pc.ctx.fillStyle = color;
+        this.pc.ctx.beginPath();
+        this.pc.ctx.moveTo(x - 5, yEnd - 6);
+        this.pc.ctx.lineTo(x + 5, yEnd - 6);
+        this.pc.ctx.lineTo(x, yEnd);
+        this.pc.ctx.closePath();
+        this.pc.ctx.fill();
+        this.pc.ctx.restore();
+      };
+
+      const activeWidth = sPistonLeft - sLeftBottom.x;
+      const x1 = sLeftBottom.x + activeWidth * 0.25;
+      const x2 = sLeftBottom.x + activeWidth * 0.5;
+      const x3 = sLeftBottom.x + activeWidth * 0.75;
+      const yBot = sLeftBottom.y;
+      const yGasTarget = yBot - boxH * 0.35;
+
+      // Draw Heat flow arrows
+      let showHeatIn = false;
+      let showHeatOut = false;
+
+      if (this.autoCycle) {
+        if (this.cycleStage === 0) showHeatIn = true;
+        else if (this.cycleStage === 2) showHeatOut = true;
+      } else {
+        if (this.heatTransfer === 'heating') showHeatIn = true;
+        else if (this.heatTransfer === 'cooling') showHeatOut = true;
+      }
+
+      if (showHeatIn) {
+        drawWavyArrowUp(x1, yBot + 15, yGasTarget, '#ef4444');
+        drawWavyArrowUp(x2, yBot + 15, yGasTarget, '#ef4444');
+        drawWavyArrowUp(x3, yBot + 15, yGasTarget, '#ef4444');
+        
+        this.pc.ctx.fillStyle = '#ef4444';
+        this.pc.ctx.font = 'bold 11px Outfit, sans-serif';
+        this.pc.ctx.textAlign = 'center';
+        this.pc.ctx.fillText("HEAT ADDED Q_in ➔", x2, yBot + 30);
+      } else if (showHeatOut) {
+        drawWavyArrowDown(x1, yGasTarget, yBot + 15, '#3b82f6');
+        drawWavyArrowDown(x2, yGasTarget, yBot + 15, '#3b82f6');
+        drawWavyArrowDown(x3, yGasTarget, yBot + 15, '#3b82f6');
+
+        this.pc.ctx.fillStyle = '#3b82f6';
+        this.pc.ctx.font = 'bold 11px Outfit, sans-serif';
+        this.pc.ctx.textAlign = 'center';
+        this.pc.ctx.fillText("➔ HEAT REJECTED Q_out", x2, yBot + 30);
+      }
+
+      // Draw Work flow labels
+      let isExpanding = false;
+      let isCompressing = false;
+
+      if (this.autoCycle) {
+        if (this.cycleStage === 0 || this.cycleStage === 1) isExpanding = true;
+        else if (this.cycleStage === 2 || this.cycleStage === 3) isCompressing = true;
+      } else {
+        const targetVol = this.config.volume;
+        if (targetVol > this.volume + 0.05) isExpanding = true;
+        else if (targetVol < this.volume - 0.05) isCompressing = true;
+      }
+
+      this.pc.ctx.save();
+      this.pc.ctx.textAlign = 'left';
+      if (isExpanding) {
+        this.pc.ctx.fillStyle = '#10b981'; // Green
+        this.pc.ctx.font = 'bold 11px Outfit, sans-serif';
+        this.pc.ctx.fillText("Work Done BY Gas (W > 0) ➔➔", sPistonLeft + sPistonWidth + 15, sPistonTop + boxH / 2 - 15);
+      } else if (isCompressing) {
+        this.pc.ctx.fillStyle = '#ef4444'; // Red
+        this.pc.ctx.font = 'bold 11px Outfit, sans-serif';
+        this.pc.ctx.fillText("◀◀ Work Done ON Gas (W < 0)", sPistonLeft + sPistonWidth + 15, sPistonTop + boxH / 2 - 15);
+      }
+      this.pc.ctx.restore();
+
+      // Render Stage Name text overlay
+      if (this.autoCycle) {
+        let stageName = "";
+        let stageDesc = "";
+        switch (this.cycleStage) {
+          case 0:
+            stageName = "STAGE 1: ISOTHERMAL EXPANSION";
+            stageDesc = "Gas expands at constant hot temperature (T_H). Heat Q_in is added.";
+            break;
+          case 1:
+            stageName = "STAGE 2: ADIABATIC EXPANSION";
+            stageDesc = "Gas expands with zero heat transfer. Temperature drops to T_C.";
+            break;
+          case 2:
+            stageName = "STAGE 3: ISOTHERMAL COMPRESSION";
+            stageDesc = "Gas is compressed at constant cold temperature (T_C). Heat Q_out is rejected.";
+            break;
+          case 3:
+            stageName = "STAGE 4: ADIABATIC COMPRESSION";
+            stageDesc = "Gas is compressed with zero heat transfer. Temperature rises to T_H.";
+            break;
+        }
+        
+        this.pc.ctx.save();
+        this.pc.ctx.textAlign = 'center';
+        this.pc.ctx.fillStyle = this.getCycleStageColor();
+        this.pc.ctx.font = 'bold 12px Outfit, sans-serif';
+        
+        this.pc.ctx.fillText(stageName, xMid, sRightTop.y - 35);
+        this.pc.ctx.fillStyle = this.pc.theme === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)';
+        this.pc.ctx.font = '10px Outfit, sans-serif';
+        this.pc.ctx.fillText(stageDesc, xMid, sRightTop.y - 20);
+        this.pc.ctx.restore();
+      }
     }
   }
 
