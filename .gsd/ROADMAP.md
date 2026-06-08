@@ -20,7 +20,7 @@
 **Objective**: Implement the movable piston chamber and solve the equations of state for Isothermal, Isobaric, Isochoric, and Adiabatic processes.
 
 ### Phase 3: Carnot Cycles & State Diagrams
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Implement automated closed-cycle engine presets (Carnot cycle) and coordinate mapping for thermodynamic state tracking.
 
 ### Phase 4: Statistical Entropy & Gas Diffusion
