@@ -1,22 +1,74 @@
-# Phase 4 Verification
+---
+phase: 4
+verified_at: 2026-06-08T16:25:24+05:30
+verdict: PASS
+---
 
-This document verifies the implementation of Phase 4: Energy Conservation Real-Time Graph Integration.
+# Phase 4 Verification Report
+
+## Summary
+1/1 must-haves verified. All compilation and production build checks pass.
 
 ## Must-Haves
-- [x] **Real-time Energy Plot Integration** — **VERIFIED**
-  - **Evidence**:
-    - `GraphModule.ts` is updated to define the common `EnergyStatePoint` interface, enabling drawing energy plots for SHM and Gravity simulations interchangeably.
-    - `GravityDiagram.ts` now tracks state history containing time `t`, kinetic energy `kineticEnergy`, potential energy `potentialEnergy`, and total energy `totalEnergy`.
-    - Correct physics-based formulations are used for energy calculations:
-      - Kepler: $KE = 0.5 v^2$, $PE = -GM/r$ ($GM=10.0$, $m=1.0$).
-      - Two-Body: $KE = 0.5 m_1 v_1^2 + 0.5 m_2 v_2^2$, $PE = -G m_1 m_2 / \sqrt{r^2 + \epsilon^2}$ ($G=1.0$, softening $\epsilon = 0.15$).
-      - Escape Launcher: $KE = 0.5 v^2$, $PE = -G M_p/r$ ($G=1.0$, $m=1.0$).
-    - `src/main.ts` is updated to unhide the graph card and lock the graph mode to `'energy'` for all gravitation presets, updating the plot dynamically via `graphModule.draw(gravityDiagram.history)`.
+
+### ✅ Real-time Energy Plot Integration
+**Status:** PASS
+**Evidence:**
+- Refactored `GraphModule.draw()` accepts generic `EnergyStatePoint[]` structure:
+```typescript
+export interface EnergyStatePoint {
+  t: number;
+  kineticEnergy: number;
+  potentialEnergy: number;
+  totalEnergy: number;
+  x?: number;
+  v?: number;
+}
+```
+- Energy equations implemented in `GravityDiagram.ts`:
+  - **Keplerian**:
+    $KE = 0.5 \cdot v^2$ (planet mass $m = 1.0$).
+    $PE = -10.0 / r$ ($M_{\text{star}} = 10.0$ and $G = 1.0$).
+  - **Two-Body**:
+    $KE = 0.5 \cdot m_1 v_1^2 + 0.5 \cdot m_2 v_2^2$.
+    $PE = -m_1 m_2 / \sqrt{r^2 + \epsilon^2}$ with Plummer softening $\epsilon = 0.15$.
+  - **Escape Launcher**:
+    $KE = 0.5 v^2$ (probe mass $m = 1.0$).
+    $PE = -M_p / r$ (planet mass $M_p$, $G = 1.0$).
+- Integrated UI hook inside preset loader and `drawActiveSimulation()` inside `src/main.ts`:
+```typescript
+  } else if (config.type === 'gravity') {
+    gravityDiagram.setConfig(config);
+    graphCard.classList.remove('hidden');
+    selectGraphMode.classList.add('hidden');
+    graphModule.mode = 'energy';
+    graphTitle.innerText = 'Real-Time Graph: ENERGY CONSERVATION';
+  }
+```
 
 ## Build Verification
-- [x] **Strict Type-Checking (`npx tsc --noEmit`)** — **VERIFIED**
-  - **Evidence**: The project compiles successfully with no TypeScript compilation errors.
-- [x] **Vite Bundle Build (`npm run build`)** — **VERIFIED**
-  - **Evidence**: The production bundle build completed successfully in 275ms with no warnings or errors.
 
-## Verdict: PASS
+### ✅ TypeScript Strict Type Check
+**Status:** PASS
+**Evidence:**
+Running `npx tsc --noEmit` returns no compilation errors:
+```
+tsc command completed successfully with zero error output.
+```
+
+### ✅ Vite Production Build
+**Status:** PASS
+**Evidence:**
+Running `npm run build` succeeds:
+```
+vite v8.0.16 building client environment for production...
+transforming...✓ 14 modules transformed.
+rendering chunks...
+dist/index.html                  11.01 kB │ gzip:  3.04 kB
+dist/assets/index-DiOwNWF4.css    7.99 kB │ gzip:  2.09 kB
+dist/assets/index-DGNSRfcy.js   122.50 kB │ gzip: 27.77 kB
+✓ built in 275ms
+```
+
+## Verdict
+PASS

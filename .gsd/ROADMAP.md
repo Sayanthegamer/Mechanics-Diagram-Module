@@ -7,7 +7,7 @@
 - [x] Kepler's Laws Simulation: planet orbiting a star with eccentricity/semi-major axis sliders and real-time sweeping of equal-area sectors.
 - [x] Two-Body Barycentric Orbit Simulation: two comparable masses orbiting a common center of mass (barycenter) with trail lines.
 - [x] Escape Velocity launcher: launches a probe from a planet, dynamically plotting the orbital trajectory types (circle, ellipse, parabola, hyperbola) with a live initial speed control.
-- [ ] Real-time Energy Plot Integration: dynamic graphs showing Kinetic, Potential, and Total energy conservation synchronized with the orbits.
+- [x] Real-time Energy Plot Integration: dynamic graphs showing Kinetic, Potential, and Total energy conservation synchronized with the orbits.
 
 ## Phases
 
@@ -24,7 +24,7 @@
 **Objective**: Construct the escape velocity probe launcher, rendering dynamic trajectory pathways (conic sections) from the launch conditions.
 
 ### Phase 4: Energy Conservation Real-Time Graph Integration
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Connect the gravity module to the main real-time graphing utility to plot energy components.
 
 ### Phase 5: Verification & Polish
