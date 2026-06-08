@@ -1,5 +1,6 @@
 import type { GravityConfig, EscapeVelocityParams } from '../types';
 import { PhysicsCanvas } from '../PhysicsCanvas';
+import type { EnergyStatePoint } from './GraphModule';
 
 interface SweepSector {
   startE: number;
@@ -10,6 +11,7 @@ interface SweepSector {
 export class GravityDiagram {
   private pc: PhysicsCanvas;
   private config!: GravityConfig;
+  public history: EnergyStatePoint[] = [];
 
   // Simulation state
   public t: number = 0;
@@ -78,6 +80,7 @@ export class GravityDiagram {
     this.E = 0;
     this.sectors = [];
     this.sweepTimer = 0;
+    this.history = [];
 
     const { mode, kepler, twobody, escape } = this.config;
     if (mode === 'kepler' && kepler) {
@@ -242,6 +245,7 @@ export class GravityDiagram {
         this.lastSweepE = this.E;
       }
     } else if (mode === 'twobody') {
+      this.t += dt;
       const G = 1.0;
       const epsilon = 0.15;
 
@@ -383,6 +387,45 @@ export class GravityDiagram {
       if (this.probeTrail.length > 400) {
         this.probeTrail.shift();
       }
+    }
+
+    // Record energy in history
+    let kineticEnergy = 0;
+    let potentialEnergy = 0;
+
+    if (mode === 'kepler') {
+      const v2 = this.planetVx * this.planetVx + this.planetVy * this.planetVy;
+      const r = Math.sqrt(this.planetX * this.planetX + this.planetY * this.planetY);
+      kineticEnergy = 0.5 * v2; // m = 1
+      potentialEnergy = -10.0 / (r > 1e-6 ? r : 1e-6); // GM = 10
+    } else if (mode === 'twobody') {
+      const v1Sqr = this.vx1 * this.vx1 + this.vy1 * this.vy1;
+      const v2Sqr = this.vx2 * this.vx2 + this.vy2 * this.vy2;
+      kineticEnergy = 0.5 * this.m1 * v1Sqr + 0.5 * this.m2 * v2Sqr;
+
+      const dx = this.x2 - this.x1;
+      const dy = this.y2 - this.y1;
+      const distSqr = dx * dx + dy * dy;
+      const epsilon = 0.15;
+      potentialEnergy = - (this.m1 * this.m2) / Math.sqrt(distSqr + epsilon * epsilon); // G = 1
+    } else if (mode === 'escape' && escape) {
+      const v2 = this.pvx * this.pvx + this.pvy * this.pvy;
+      kineticEnergy = 0.5 * v2; // m = 1
+      const r = Math.sqrt(this.px * this.px + this.py * this.py);
+      const Mp = escape.planetMass;
+      potentialEnergy = -Mp / (r > 1e-6 ? r : 1e-6); // G = 1
+    }
+
+    const totalEnergy = kineticEnergy + potentialEnergy;
+    this.history.push({
+      t: this.t,
+      kineticEnergy,
+      potentialEnergy,
+      totalEnergy
+    });
+
+    if (this.history.length > 200) {
+      this.history.shift();
     }
   }
 
