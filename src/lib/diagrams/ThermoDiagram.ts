@@ -807,4 +807,12 @@ export class ThermoDiagram {
       default: return '#8b5cf6';
     }
   }
+
+  public openBarrier(): void {
+    this.barrierClosed = false;
+  }
+
+  public closeBarrier(): void {
+    this.resetState();
+  }
 }
