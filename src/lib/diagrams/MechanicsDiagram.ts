@@ -57,6 +57,12 @@ export class MechanicsDiagram {
 
   // Circular motion state
   public circularAngle: number = 0; // angle of bob in radians
+  public circularOmega: number = 0;
+  public circularX: number = 0;
+  public circularY: number = 0;
+  public circularVx: number = 0;
+  public circularVy: number = 0;
+  public circularIsSlack: boolean = false;
 
   constructor(pc: PhysicsCanvas) {
     this.pc = pc;
@@ -120,6 +126,12 @@ export class MechanicsDiagram {
     } else if (mode === 'circular' && circular) {
       // Start at the bottom for vertical (angle = -Math.PI / 2), and 0 for horizontal
       this.circularAngle = circular.isVertical ? -Math.PI / 2 : 0;
+      this.circularOmega = circular.speed / circular.radius;
+      this.circularX = circular.radius * Math.cos(this.circularAngle);
+      this.circularY = circular.radius * Math.sin(this.circularAngle);
+      this.circularVx = circular.speed;
+      this.circularVy = 0;
+      this.circularIsSlack = false;
     }
   }
 
@@ -749,40 +761,83 @@ export class MechanicsDiagram {
   private stepCircular(dt: number, params: any): void {
     const { radius, speed, gravity, isVertical } = params;
     const r = radius;
+    const g = gravity;
 
     if (isVertical) {
-      // Speed at bottom v0
-      const v0 = speed;
-      // Current angle relative to bottom (circularAngle measures standard angle)
-      // Since bottom is -Math.PI / 2, the angle relative to bottom is theta = circularAngle - (-Math.PI / 2) = circularAngle + Math.PI / 2
-      const theta = this.circularAngle + Math.PI / 2;
-      const h = r * (1 - Math.cos(theta));
-      
-      const vSq = v0 * v0 - 2 * gravity * h;
-      if (vSq > 0) {
-        const v = Math.sqrt(vSq);
-        const omega = v / r;
-        this.circularAngle += omega * dt;
+      if (!this.circularIsSlack) {
+        // Taut string: Euler-Cromer integration on angular variables
+        // Alpha = -g/r * cos(theta)
+        const alpha = -(g / r) * Math.cos(this.circularAngle);
+        this.circularOmega += alpha * dt;
+        this.circularAngle += this.circularOmega * dt;
+
+        const v = this.circularOmega * r;
+        
+        // Check if tension drops below zero (string goes slack)
+        // Tension T = m * (v^2/r - g * sin(theta))
+        const tensionTerm = (v * v) / r - g * Math.sin(this.circularAngle);
+        if (tensionTerm < 0) {
+          this.circularIsSlack = true;
+          // Set Cartesian positions and velocities
+          this.circularX = r * Math.cos(this.circularAngle);
+          this.circularY = r * Math.sin(this.circularAngle);
+          this.circularVx = -v * Math.sin(this.circularAngle);
+          this.circularVy = v * Math.cos(this.circularAngle);
+        } else {
+          // Keep cartesian state in sync
+          this.circularX = r * Math.cos(this.circularAngle);
+          this.circularY = r * Math.sin(this.circularAngle);
+          this.circularVx = -v * Math.sin(this.circularAngle);
+          this.circularVy = v * Math.cos(this.circularAngle);
+        }
       } else {
-        // Not enough energy to continue full loop: reverse direction (act like pendulum)
-        // We will just step circularAngle as a pendulum approximation or let it stop
-        this.circularAngle += (v0 / r) * dt; // Fallback to avoid complete freeze
+        // Slack string: projectile motion (pure gravity)
+        this.circularVx += 0;
+        this.circularVy += -g * dt;
+        this.circularX += this.circularVx * dt;
+        this.circularY += this.circularVy * dt;
+
+        // Check if string becomes taut again (distance >= radius)
+        const dist = Math.sqrt(this.circularX * this.circularX + this.circularY * this.circularY);
+        if (dist >= r) {
+          this.circularIsSlack = false;
+          // Set angle based on current position
+          this.circularAngle = Math.atan2(this.circularY, this.circularX);
+          // Snap position back onto the circle boundary
+          this.circularX = r * Math.cos(this.circularAngle);
+          this.circularY = r * Math.sin(this.circularAngle);
+          
+          // Project velocity tangent to the circle (radial component is lost)
+          const tangentX = -Math.sin(this.circularAngle);
+          const tangentY = Math.cos(this.circularAngle);
+          const vTangent = this.circularVx * tangentX + this.circularVy * tangentY;
+          
+          this.circularOmega = vTangent / r;
+          this.circularVx = vTangent * tangentX;
+          this.circularVy = vTangent * tangentY;
+        }
       }
     } else {
       // Horizontal uniform circular motion
       const omega = speed / r;
       this.circularAngle += omega * dt;
+      this.circularX = r * Math.cos(this.circularAngle);
+      this.circularY = r * Math.sin(this.circularAngle);
+      this.circularVx = -speed * Math.sin(this.circularAngle);
+      this.circularVy = speed * Math.cos(this.circularAngle);
+      this.circularIsSlack = false;
     }
 
-    // Keep angle within 0..2*PI
-    this.circularAngle = this.circularAngle % (Math.PI * 2);
+    // Keep angle within -PI..PI
+    if (this.circularAngle > Math.PI) this.circularAngle -= Math.PI * 2;
+    if (this.circularAngle < -Math.PI) this.circularAngle += Math.PI * 2;
   }
 
   // Circular motion draw renderer
   private drawCircular(): void {
     const params = this.config.circular;
     if (!params) return;
-    const { radius, speed, gravity, mass, isVertical } = params;
+    const { radius, gravity, mass, isVertical } = params;
 
     const r = radius;
     const g = gravity;
@@ -798,8 +853,8 @@ export class MechanicsDiagram {
     this.pc.ctx.restore();
 
     // Bob position
-    const bx = r * Math.cos(this.circularAngle);
-    const by = r * Math.sin(this.circularAngle);
+    const bx = this.circularX;
+    const by = this.circularY;
     const sBob = this.pc.toScreen(bx, by);
 
     // Draw circular path (dashed grey line)
@@ -816,6 +871,9 @@ export class MechanicsDiagram {
     this.pc.ctx.save();
     this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? '#aaa' : '#555';
     this.pc.ctx.lineWidth = 2.0;
+    if (this.circularIsSlack) {
+      this.pc.ctx.setLineDash([3, 3]); // Dashed string when slack
+    }
     this.pc.ctx.beginPath();
     this.pc.ctx.moveTo(sPivot.x, sPivot.y);
     this.pc.ctx.lineTo(sBob.x, sBob.y);
@@ -840,20 +898,17 @@ export class MechanicsDiagram {
     this.pc.ctx.fillText(`${m}kg`, sBob.x, sBob.y);
     this.pc.ctx.restore();
 
-    // Calculate forces
+    // Calculate forces and velocities dynamically
     const Fg = m * g;
-    // Current angle relative to bottom
-    const theta = this.circularAngle + Math.PI / 2;
-    let v = speed;
+    const v = Math.sqrt(this.circularVx * this.circularVx + this.circularVy * this.circularVy);
     let T = 0;
 
     if (isVertical) {
-      const h = r * (1 - Math.cos(theta));
-      const vSq = speed * speed - 2 * g * h;
-      v = vSq > 0 ? Math.sqrt(vSq) : 0;
-      T = (m * v * v) / r + m * g * Math.cos(theta);
+      if (!this.circularIsSlack) {
+        T = m * ((v * v) / r - g * Math.sin(this.circularAngle));
+      }
     } else {
-      T = (m * speed * speed) / r;
+      T = (m * v * v) / r;
     }
 
     const vecScale = 0.08;
@@ -873,14 +928,12 @@ export class MechanicsDiagram {
       );
     }
 
-    // 3. Velocity: tangent to circular path (points counter-clockwise: -sin(angle), cos(angle))
+    // 3. Velocity: actual velocity vector (can point in any direction if slack)
     if (v > 0.1) {
-      const tangentX = -Math.sin(this.circularAngle);
-      const tangentY = Math.cos(this.circularAngle);
       const velScale = 0.3;
       this.pc.drawArrow(
         bx, by,
-        bx + tangentX * v * velScale, by + tangentY * v * velScale,
+        bx + this.circularVx * velScale, by + this.circularVy * velScale,
         '#22d3ee', `v = ${v.toFixed(1)}m/s`, { headSize: 6, labelOffset: 12 }
       );
     }
