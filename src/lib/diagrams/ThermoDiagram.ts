@@ -682,4 +682,63 @@ export class ThermoDiagram {
       this.pc.ctx.restore();
     }
   }
+
+  public getCarnotLoopPoints(): { x: number; y: number }[] {
+    const points: { x: number; y: number }[] = [];
+    const N = this.particles.length > 0 ? this.particles.length : (this.config ? this.config.particleCount : 100);
+    const gamma = this.gamma;
+    const tHot = this.tHot;
+    const tCold = this.tCold;
+    const vA = this.vA;
+    const vB = this.vB;
+
+    const vC = vB * Math.pow(tHot / tCold, 1 / (gamma - 1));
+    const vD = vA * Math.pow(tHot / tCold, 1 / (gamma - 1));
+
+    const stepsPerStage = 25;
+
+    // Stage 0: Isothermal Expansion (A -> B)
+    for (let i = 0; i <= stepsPerStage; i++) {
+      const u = i / stepsPerStage;
+      const v = vA + u * (vB - vA);
+      const p = (N * tHot) / v;
+      points.push({ x: v, y: p });
+    }
+
+    // Stage 1: Adiabatic Expansion (B -> C)
+    for (let i = 0; i <= stepsPerStage; i++) {
+      const u = i / stepsPerStage;
+      const v = vB + u * (vC - vB);
+      const p = ((N * tHot) / vB) * Math.pow(vB / v, gamma);
+      points.push({ x: v, y: p });
+    }
+
+    // Stage 2: Isothermal Compression (C -> D)
+    for (let i = 0; i <= stepsPerStage; i++) {
+      const u = i / stepsPerStage;
+      const v = vC - u * (vC - vD);
+      const p = (N * tCold) / v;
+      points.push({ x: v, y: p });
+    }
+
+    // Stage 3: Adiabatic Compression (D -> A)
+    for (let i = 0; i <= stepsPerStage; i++) {
+      const u = i / stepsPerStage;
+      const v = vD - u * (vD - vA);
+      const p = ((N * tCold) / vD) * Math.pow(vD / v, gamma);
+      points.push({ x: v, y: p });
+    }
+
+    return points;
+  }
+
+  public getCycleStageColor(): string {
+    switch (this.cycleStage) {
+      case 0: return '#10b981'; // green for isothermal expansion
+      case 1: return '#eab308'; // yellow for adiabatic expansion
+      case 2: return '#3b82f6'; // blue for isothermal compression
+      case 3: return '#ef4444'; // red for adiabatic compression
+      default: return '#8b5cf6';
+    }
+  }
 }
