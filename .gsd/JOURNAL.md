@@ -1,5 +1,5 @@
 # Journal
 
-> Previous milestone journal archived in `.gsd/milestones/v3.0/JOURNAL.md`
+> Previous milestone journal archived in `.gsd/milestones/v4.0/JOURNAL.md`
 
 ---

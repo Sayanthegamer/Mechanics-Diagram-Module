@@ -1,12 +1,11 @@
 # GSD Project State
 
 ## Current Position
-- **Phase**: 5 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Milestone**: v4.0 (Thermodynamics & Kinetic Theory) - COMPLETE
+- **Status**: Milestone completed and verified
 
 ## Last Session Summary
-Phase 5 (UI Panel Controls, Plots, & Polish) executed successfully. 1 plan, 4 tasks completed and verified.
+Milestone v4.0 completed successfully. 5 phases and 1 sprint executed, verified, and archived.
 
 ## In-Progress Work
 - Files modified: None (Milestone v4.0 complete).
@@ -15,10 +14,5 @@ Phase 5 (UI Panel Controls, Plots, & Polish) executed successfully. 1 plan, 4 ta
 ## Blockers
 None.
 
-## Context Dump
-We are implementing Milestone v4.0 (Thermodynamics & Kinetic Theory).
-- Phase 1-5 are fully complete, verified, and committed.
-- All must-haves for Milestone v4.0 are completed and pass automated checks.
-
 ## Next Steps
-1. Verify Milestone v4.0 and finalize.
+1. Run `/new-milestone` to start the next milestone.

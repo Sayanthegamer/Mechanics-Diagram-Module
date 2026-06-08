@@ -1,0 +1,68 @@
+# Decisions
+
+> Previous milestone decisions archived in `.gsd/milestones/v3.0/DECISIONS.md`
+
+---
+
+## Phase 1 Decisions
+
+**Date:** 2026-06-08
+
+### Scope
+- **Particle Species**: Bi-disperse species (Heavy/Red and Light/Blue particles) to clearly illustrate differences in speed distributions and diffusion.
+- **Particle Count ($N$)**: Controlled from 10 to 150 particles to keep 60fps performance optimal.
+- **Volume Change**: Real-time adjustable right-hand boundary wall via both dynamic sidebar slider and direct canvas click-and-drag.
+
+### Approach
+- **Integration & Collisions**: Verlet integration combined with naive $O(N^2)$ elastic pairwise collision checking and instant velocity scaling for temperature updates. Pressure is calculated dynamically by accumulating wall collision momentum transfers.
+
+## Phase 2 Decisions
+
+**Date:** 2026-06-08
+
+### Scope
+- **Visual Cues**: Render a fire burner (glowing gradient) and ice blocks under the cylinder to denote heat source/sink activation, alongside a force vector acting on the piston head.
+- **Gas Type**: Monoatomic gas model with adiabatic ratio $\gamma \approx 1.67$.
+
+### Approach
+- **Thermodynamic Solver**: Formula-driven macroscopic state trajectory to ensure perfect textbook curves, with microscopic particle velocities scaled dynamically to match the macroscopic temperature $T$ at each frame.
+- **Process Support**: Implement transitions for Isothermal ($T=\text{const}$), Isobaric ($P=\text{const}$), Isochoric ($V=\text{const}$), and Adiabatic ($Q=0$).
+
+## Phase 3 Decisions
+
+**Date:** 2026-06-08
+
+### Scope
+- **Cycle Type**: Carnot Cycle (focusing on standard isothermal and adiabatic transitions).
+- **Automation Control**: Finite State Machine (FSM) driving time-based cycle automation (e.g. 3-4s per step) with play/pause and manual stage-stepping button controls.
+
+### Approach
+- **PV Diagram Tracing**: Render a persistent closed-loop trace of the Carnot cycle on the graph canvas, showing a dynamic state pointer moving along the paths in real-time.
+
+## Phase 4 Decisions
+
+**Date:** 2026-06-08
+
+### Scope
+- **Setup**: Split chamber with a sliding central barrier. Species A (Heavy/Red) on the left, Species B (Light/Blue) on the right.
+- **UI Trigger**: Interactive click-to-remove barrier directly on the canvas, plus sidebar button control.
+
+### Approach
+- **Entropy Calculation**: Grid-based Shannon entropy of mixing ($4 \times 4$ spatial cells) to produce a smooth, physically accurate rising entropy curve during diffusion.
+
+## Phase 5 Decisions
+
+**Date:** 2026-06-08
+
+### Scope
+- **Plots**: Real-time velocity histogram with theoretical Maxwell-Boltzmann curve overlay, PV diagram tracing with active stage color indicators, and entropy curve tracking.
+- **Controls**: Sliders for Temperature ($T$), Number of particles ($N$), Volume ($V$), and Heat Input ($Q$).
+
+### Approach
+- **Performance**: High-speed binning loops to render live velocity histograms efficiently.
+- **Quality**: Verified using strict compiler verification scripts (`npm run verify`).
+
+
+
+
+

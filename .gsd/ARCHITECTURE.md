@@ -64,8 +64,13 @@ Each diagram class follows a unified interface: `setConfig(config)`, `resetState
   - Simulates dynamic gravitational systems including Keplerian orbit sector sweeping, Two-Body barycentric orbits, and Escape velocity probe launches.
   - Implements Kepler's solver (Newton-Raphson) and high-accuracy RK4 ODE integrator.
   - Calculates kinetic and potential energy components in real-time.
+- **ThermoDiagram.ts**:
+  - Simulates thermodynamic and kinetic theory systems with three modes: Kinetic Theory of Gases (Rayleigh speed distributions, gas mixtures), Piston Engine (Carnot, isothermal, isobaric, isochoric, and adiabatic processes), and Gas Diffusion (barrier removal, particle mixing).
+  - Models particle-wall collisions with impulse tracking to calculate physical pressure, and piston dynamics with volume conservation.
+  - Calculates entropy ($S = 1.5 \ln T + \ln V$) for T-S diagrams.
 - **GraphModule.ts**:
-  - Plots real-time data points (kinematics, energies, phase space orbits, fluid displacements, flow speeds, and pressures) on a separate HTML5 Canvas. Supports customized scaling, legends, and dynamic energy conservation plots.
+  - Plots real-time data points (kinematics, energies, phase space orbits, fluid displacements, flow speeds, pressures, and thermodynamic cycles) on a separate HTML5 Canvas.
+  - Supports customized scaling, legends, and specialized graphing modes including real-time P-V / T-S trace overlays and dynamic Maxwell-Boltzmann speed distributions with theoretical Rayleigh curves.
 
 ### 4. Interactive & Accessibility Subsystem
 - **Files**: `src/main.ts`
