@@ -1,12 +1,12 @@
 # GSD Project State
 
 ## Current Position
-- **Sprint**: none
-- **Status**: Idle
-- **Milestone**: (completed)
+- **Milestone**: v3.0 (Gravitation & Orbital Mechanics)
+- **Phase**: Not started
+- **Status**: Milestone planned
 
 ## Milestone Summary
-Milestone v2.0 and the "rework-vertical-loop" sprint are fully complete.
+Initiated Milestone v3.0 focusing on gravity, orbits, two-body barycenters, and escape velocity.
 
 ## Last Session Summary
-Successfully reworked the vertical circular loop motion simulation in `MechanicsDiagram.ts` into a fully dynamic physical simulation with slack string behavior and projectile motion fallback, verified all constraints through local browser runs, and closed the sprint.
+Archived and closed the "rework-vertical-loop" mechanics sprint. Initialized v3.0 milestone.
