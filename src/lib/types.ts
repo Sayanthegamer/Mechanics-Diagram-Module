@@ -1,4 +1,4 @@
-export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids' | 'gravity' | 'thermo';
+export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids' | 'gravity' | 'thermo' | 'em';
 
 export interface BaseConfig {
   type: DiagramType;
@@ -205,6 +205,25 @@ export interface ThermoConfig extends BaseConfig {
   autoCycle: boolean;
 }
 
-export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig | ThermoConfig;
+// ------------------ ELECTROMAGNETISM & CIRCUITS ------------------
+export interface EmCharge {
+  id: string;
+  x: number;
+  y: number;
+  q: number; // charge: e.g. +1 or -1
+  isDragging?: boolean;
+}
+
+export interface EmConfig extends BaseConfig {
+  type: 'em';
+  charges: EmCharge[];
+  showVectors: boolean;
+  showLines: boolean;
+  showEquipotentials: boolean;
+  numLinesPerCharge: number;
+}
+
+export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig | ThermoConfig | EmConfig;
+
 
 
