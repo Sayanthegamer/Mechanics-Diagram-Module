@@ -1,4 +1,4 @@
-export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids' | 'gravity';
+export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids' | 'gravity' | 'thermo';
 
 export interface BaseConfig {
   type: DiagramType;
@@ -192,6 +192,19 @@ export interface GravityConfig extends BaseConfig {
   escape: EscapeVelocityParams;
 }
 
-export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig;
+// ------------------ THERMODYNAMICS & KINETIC THEORY ------------------
+export interface ThermoConfig extends BaseConfig {
+  type: 'thermo';
+  mode: 'kinetic-theory' | 'piston-engine' | 'diffusion';
+  temperature: number;
+  particleCount: number;
+  volume: number;
+  heatInput: number;
+  showDistribution: boolean;
+  showEntropy: boolean;
+  autoCycle: boolean;
+}
+
+export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig | ThermoConfig;
 
 
