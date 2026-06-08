@@ -14,7 +14,7 @@ export interface Particle {
 
 export class ThermoDiagram {
   private pc: PhysicsCanvas;
-  private config!: ThermoConfig;
+  public config!: ThermoConfig;
 
   // Simulation state
   public t: number = 0;
@@ -55,7 +55,7 @@ export class ThermoDiagram {
   public entropyHistory: { t: number; entropy: number }[] = [];
 
   // Capped history array for graphing
-  public history: { t: number; kineticEnergy: number; potentialEnergy: number; totalEnergy: number }[] = [];
+  public history: { t: number; kineticEnergy: number; potentialEnergy: number; totalEnergy: number; p?: number; v?: number }[] = [];
 
   private accumulatedImpulse: number = 0;
   private pressureTimeWindow: number = 0;
@@ -450,7 +450,9 @@ export class ThermoDiagram {
       t: this.t,
       kineticEnergy: kineticSum,
       potentialEnergy: 0,
-      totalEnergy: kineticSum
+      totalEnergy: kineticSum,
+      p: this.pressure,
+      v: this.volume
     });
 
     if (this.history.length > 200) {

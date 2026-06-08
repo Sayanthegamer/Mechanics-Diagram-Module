@@ -1,6 +1,7 @@
 import type { ShmState } from './ShmDiagram';
 import type { FbdState } from './FbdDiagram';
 import type { FluidsState } from './FluidsDiagram';
+import type { ThermoDiagram } from './ThermoDiagram';
 
 export type GraphMode = 'kinematics' | 'energy' | 'phase-space';
 
@@ -11,6 +12,7 @@ export interface EnergyStatePoint {
   totalEnergy: number;
   x?: number;
   v?: number;
+  p?: number;
 }
 
 export class GraphModule {
@@ -638,5 +640,428 @@ export class GraphModule {
     this.ctx.restore();
   }
 
-  public drawThermo(_diagram: any): void {}
+  public drawThermo(diagram: ThermoDiagram): void {
+    this.clear();
+
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+
+    const axisColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+    const gridColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+    const textColor = this.theme === 'dark' ? '#888' : '#666';
+
+    const padding = { top: 25, right: 20, bottom: 25, left: 45 };
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
+
+    const mode = diagram.config?.mode || 'kinetic-theory';
+
+    this.ctx.save();
+
+    if (mode === 'kinetic-theory') {
+      // 1. Particle Speed Histogram Binning (20 bins)
+      const B = 20;
+      const vMax = 8.0; // Capturing typical speed range
+      const w = vMax / B;
+
+      const countsA = new Array(B).fill(0);
+      const countsB = new Array(B).fill(0);
+      let nA = 0;
+      let nB = 0;
+
+      for (const p of diagram.particles) {
+        const v = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        const b = Math.max(0, Math.min(B - 1, Math.floor((v / vMax) * B)));
+        if (p.species === 'A') {
+          countsA[b]++;
+          nA++;
+        } else {
+          countsB[b]++;
+          nB++;
+        }
+      }
+
+      // Calculate experimental probability densities
+      const P_A = new Array(B).fill(0);
+      const P_B = new Array(B).fill(0);
+      let maxDensity = 0.5;
+
+      for (let b = 0; b < B; b++) {
+        if (nA > 0) {
+          P_A[b] = countsA[b] / (nA * w);
+          maxDensity = Math.max(maxDensity, P_A[b]);
+        }
+        if (nB > 0) {
+          P_B[b] = countsB[b] / (nB * w);
+          maxDensity = Math.max(maxDensity, P_B[b]);
+        }
+      }
+
+      // Theoretical Rayleigh distribution peak calculations
+      const T = diagram.temperature;
+      if (T > 0.01) {
+        // Peak of Rayleigh is at v_peak = sqrt(T / m). Peak value: sqrt(m/T)*exp(-0.5)
+        const peakValA = Math.sqrt(4.0 / T) * Math.exp(-0.5); // m=4.0
+        const peakValB = Math.sqrt(1.0 / T) * Math.exp(-0.5); // m=1.0
+        maxDensity = Math.max(maxDensity, peakValA, peakValB);
+      }
+
+      const yMax = maxDensity * 1.15;
+
+      // Draw Y grid lines
+      this.ctx.strokeStyle = gridColor;
+      this.ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const val = (i / 4) * yMax;
+        const sy = padding.top + (1.0 - i / 4) * graphHeight;
+        this.ctx.beginPath();
+        this.ctx.moveTo(padding.left, sy);
+        this.ctx.lineTo(width - padding.right, sy);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = textColor;
+        this.ctx.font = '9px Outfit, sans-serif';
+        this.ctx.textAlign = 'right';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(val.toFixed(2), padding.left - 8, sy);
+      }
+
+      // Draw X grid lines / speed labels
+      for (let i = 0; i <= 5; i++) {
+        const speedVal = (i / 5) * vMax;
+        const sx = padding.left + (i / 5) * graphWidth;
+        this.ctx.beginPath();
+        this.ctx.moveTo(sx, padding.top);
+        this.ctx.lineTo(sx, height - padding.bottom);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = textColor;
+        this.ctx.font = '9px Outfit, sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        this.ctx.fillText(speedVal.toFixed(1), sx, height - padding.bottom + 6);
+      }
+
+      // Draw binned histograms
+      const barW = graphWidth / B - 1.5;
+      for (let b = 0; b < B; b++) {
+        const sx = padding.left + (b / B) * graphWidth;
+        
+        // Species A: Heavy (Red)
+        if (nA > 0 && P_A[b] > 0) {
+          const barH = (P_A[b] / yMax) * graphHeight;
+          this.ctx.fillStyle = 'rgba(239, 68, 68, 0.28)';
+          this.ctx.fillRect(sx, padding.top + graphHeight - barH, barW, barH);
+        }
+
+        // Species B: Light (Blue)
+        if (nB > 0 && P_B[b] > 0) {
+          const barH = (P_B[b] / yMax) * graphHeight;
+          this.ctx.fillStyle = 'rgba(59, 130, 246, 0.28)';
+          this.ctx.fillRect(sx, padding.top + graphHeight - barH, barW, barH);
+        }
+      }
+
+      // Plot Theoretical Rayleigh Distribution Curves
+      if (T > 0.01) {
+        const drawRayleighCurve = (m: number, color: string) => {
+          this.ctx.beginPath();
+          this.ctx.strokeStyle = color;
+          this.ctx.lineWidth = 2.0;
+
+          let first = true;
+          for (let v = 0; v <= vMax; v += 0.08) {
+            // f(v) = m * v / T * exp(-m * v^2 / 2T)
+            const fVal = (m * v / T) * Math.exp(-m * v * v / (2 * T));
+            const sx = padding.left + (v / vMax) * graphWidth;
+            const sy = padding.top + (1.0 - fVal / yMax) * graphHeight;
+
+            if (first) {
+              this.ctx.moveTo(sx, sy);
+              first = false;
+            } else {
+              this.ctx.lineTo(sx, sy);
+            }
+          }
+          this.ctx.stroke();
+        };
+
+        // Species A: Red m=4.0
+        drawRayleighCurve(4.0, '#ef4444');
+        // Species B: Blue m=1.0
+        drawRayleighCurve(1.0, '#3b82f6');
+      }
+
+      // Render legend
+      const drawLegendItem = (label: string, color: string, idx: number) => {
+        const lx = padding.left + idx * 110;
+        const ly = padding.top - 12;
+        this.ctx.fillStyle = color;
+        this.ctx.beginPath();
+        this.ctx.arc(lx, ly, 4, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+        this.ctx.font = 'bold 9px Outfit, sans-serif';
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(label, lx + 8, ly);
+      };
+      drawLegendItem('Heavy Species (A)', '#ef4444', 0);
+      drawLegendItem('Light Species (B)', '#3b82f6', 1);
+
+    } else if (mode === 'piston-engine') {
+      // 2. Pressure-Volume (PV) Diagram
+      let yMin = 0;
+      let yMax = 300;
+      const pValues: number[] = [];
+
+      for (const pt of diagram.history) {
+        if (pt.p !== undefined) pValues.push(pt.p);
+      }
+      if (diagram.autoCycle) {
+        const loop = diagram.getCarnotLoopPoints();
+        for (const pt of loop) pValues.push(pt.y);
+      }
+
+      if (pValues.length > 0) {
+        const maxP = Math.max(...pValues);
+        const minP = Math.min(...pValues);
+        const range = maxP - minP;
+        yMin = Math.max(0, minP - range * 0.15);
+        yMax = maxP + range * 0.15;
+        if (yMax - yMin < 10) {
+          yMin = Math.max(0, yMin - 10);
+          yMax += 10;
+        }
+      }
+
+      const getXScreen = (v: number) => padding.left + ((v - 1.0) / 4.0) * graphWidth;
+      const getYScreen = (p: number) => padding.top + (1.0 - (p - yMin) / (yMax - yMin)) * graphHeight;
+
+      // Draw Grid divisions
+      this.ctx.strokeStyle = gridColor;
+      this.ctx.lineWidth = 1;
+
+      // Y Grid
+      for (let i = 0; i <= 4; i++) {
+        const val = yMin + (i / 4) * (yMax - yMin);
+        const sy = getYScreen(val);
+        this.ctx.beginPath();
+        this.ctx.moveTo(padding.left, sy);
+        this.ctx.lineTo(width - padding.right, sy);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = textColor;
+        this.ctx.font = '9px Outfit, sans-serif';
+        this.ctx.textAlign = 'right';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(val.toFixed(1), padding.left - 8, sy);
+      }
+
+      // X Grid (Volume 1.0 to 5.0)
+      for (let v = 1.0; v <= 5.0; v += 1.0) {
+        const sx = getXScreen(v);
+        this.ctx.beginPath();
+        this.ctx.moveTo(sx, padding.top);
+        this.ctx.lineTo(sx, height - padding.bottom);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = textColor;
+        this.ctx.font = '9px Outfit, sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        this.ctx.fillText(`V=${v.toFixed(1)}`, sx, height - padding.bottom + 6);
+      }
+
+      // Draw Carnot Loop Segment Paths
+      if (diagram.autoCycle) {
+        const loop = diagram.getCarnotLoopPoints();
+        if (loop.length >= 100) {
+          const drawStageSegment = (startIdx: number, endIdx: number, color: string) => {
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = 3;
+            this.ctx.setLineDash([4, 3]);
+
+            this.ctx.moveTo(getXScreen(loop[startIdx].x), getYScreen(loop[startIdx].y));
+            for (let idx = startIdx + 1; idx <= endIdx; idx++) {
+              this.ctx.lineTo(getXScreen(loop[idx].x), getYScreen(loop[idx].y));
+            }
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+          };
+
+          // Stage 0: Isothermal Exp
+          drawStageSegment(0, 25, '#10b981');
+          // Stage 1: Adiabatic Exp
+          drawStageSegment(25, 50, '#eab308');
+          // Stage 2: Isothermal Comp
+          drawStageSegment(50, 75, '#3b82f6');
+          // Stage 3: Adiabatic Comp
+          drawStageSegment(75, 100, '#ef4444');
+        }
+      }
+
+      // Draw real-time trace path
+      if (diagram.history.length > 1) {
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = '#8b5cf6';
+        this.ctx.lineWidth = 2.5;
+        let first = true;
+        for (const pt of diagram.history) {
+          if (pt.v !== undefined && pt.p !== undefined) {
+            const sx = getXScreen(pt.v);
+            const sy = getYScreen(pt.p);
+            if (first) {
+              this.ctx.moveTo(sx, sy);
+              first = false;
+            } else {
+              this.ctx.lineTo(sx, sy);
+            }
+          }
+        }
+        this.ctx.stroke();
+      }
+
+      // Draw current state tracking dot
+      const curV = diagram.volume;
+      const curP = diagram.pressure;
+      const dotX = getXScreen(curV);
+      const dotY = getYScreen(curP);
+
+      this.ctx.beginPath();
+      this.ctx.fillStyle = diagram.getCycleStageColor();
+      this.ctx.shadowColor = diagram.getCycleStageColor();
+      this.ctx.shadowBlur = 10;
+      this.ctx.arc(dotX, dotY, 6, 0, 2 * Math.PI);
+      this.ctx.fill();
+      this.ctx.shadowBlur = 0; // Reset shadow
+
+      // Draw legend
+      const drawPistLegend = (label: string, color: string, idx: number) => {
+        const lx = padding.left + idx * 82;
+        const ly = padding.top - 12;
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(lx, ly - 3, 10, 6);
+        this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+        this.ctx.font = 'bold 8px Outfit, sans-serif';
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(label, lx + 14, ly);
+      };
+      if (diagram.autoCycle) {
+        drawPistLegend('Isotherm Exp', '#10b981', 0);
+        drawPistLegend('Adiabat Exp', '#eab308', 1);
+        drawPistLegend('Isotherm Comp', '#3b82f6', 2);
+        drawPistLegend('Adiabat Comp', '#ef4444', 3);
+      } else {
+        drawPistLegend('PV State Trace', '#8b5cf6', 0);
+      }
+
+    } else if (mode === 'diffusion') {
+      // 3. Shannon Entropy over time
+      const yMin = 0.0;
+      const yMax = 0.8;
+
+      const getXScreen = (t: number, tMin: number, tMax: number) => {
+        const range = tMax - tMin;
+        return padding.left + (range > 0 ? (t - tMin) / range : 0) * graphWidth;
+      };
+      const getYScreen = (s: number) => padding.top + (1.0 - (s - yMin) / (yMax - yMin)) * graphHeight;
+
+      let tMin = 0;
+      let tMax = 10;
+      if (diagram.entropyHistory.length > 0) {
+        tMin = diagram.entropyHistory[0].t;
+        tMax = diagram.entropyHistory[diagram.entropyHistory.length - 1].t;
+      }
+
+      // Draw Y Grid lines
+      this.ctx.strokeStyle = gridColor;
+      this.ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const val = (i / 4) * yMax;
+        const sy = getYScreen(val);
+        this.ctx.beginPath();
+        this.ctx.moveTo(padding.left, sy);
+        this.ctx.lineTo(width - padding.right, sy);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = textColor;
+        this.ctx.font = '9px Outfit, sans-serif';
+        this.ctx.textAlign = 'right';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(val.toFixed(2), padding.left - 8, sy);
+      }
+
+      // Draw X Grid lines
+      for (let i = 0; i <= 4; i++) {
+        const val = tMin + (i / 4) * (tMax - tMin);
+        const sx = padding.left + (i / 4) * graphWidth;
+        this.ctx.beginPath();
+        this.ctx.moveTo(sx, padding.top);
+        this.ctx.lineTo(sx, height - padding.bottom);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = textColor;
+        this.ctx.font = '9px Outfit, sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        this.ctx.fillText(`${val.toFixed(1)}s`, sx, height - padding.bottom + 6);
+      }
+
+      // Draw dashed reference line at Max Shannon entropy = ln(2) approx 0.693
+      const sMaxY = getYScreen(Math.log(2));
+      this.ctx.beginPath();
+      this.ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.setLineDash([4, 4]);
+      this.ctx.moveTo(padding.left, sMaxY);
+      this.ctx.lineTo(width - padding.right, sMaxY);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+
+      // Draw theoretical limit text
+      this.ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
+      this.ctx.font = '8px Outfit, sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.fillText('Max Mixed Entropy S=ln(2) ≈ 0.693', padding.left + 6, sMaxY - 4);
+
+      // Plot experimental Shannon entropy history path
+      if (diagram.entropyHistory.length > 1) {
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = '#06b6d4';
+        this.ctx.lineWidth = 3.0;
+        let first = true;
+        for (const pt of diagram.entropyHistory) {
+          const sx = getXScreen(pt.t, tMin, tMax);
+          const sy = getYScreen(pt.entropy);
+          if (first) {
+            this.ctx.moveTo(sx, sy);
+            first = false;
+          } else {
+            this.ctx.lineTo(sx, sy);
+          }
+        }
+        this.ctx.stroke();
+      }
+
+      // Display live entropy value in corner
+      this.ctx.fillStyle = this.theme === 'dark' ? '#fff' : '#000';
+      this.ctx.font = 'bold 11px Outfit, sans-serif';
+      this.ctx.textAlign = 'right';
+      this.ctx.fillText(`Entropy S: ${diagram.entropy.toFixed(4)}`, width - padding.right - 8, padding.top + 15);
+    }
+
+    // 4. Draw axes borders
+    this.ctx.strokeStyle = axisColor;
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(padding.left, padding.top);
+    this.ctx.lineTo(padding.left, height - padding.bottom);
+    this.ctx.lineTo(width - padding.right, height - padding.bottom);
+    this.ctx.stroke();
+
+    this.ctx.restore();
+  }
 }
