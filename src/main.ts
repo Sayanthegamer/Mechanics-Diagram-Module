@@ -7,6 +7,7 @@ import { ShmDiagram } from './lib/diagrams/ShmDiagram';
 import { WaveDiagram } from './lib/diagrams/WaveDiagram';
 import { MechanicsDiagram } from './lib/diagrams/MechanicsDiagram';
 import { FluidsDiagram } from './lib/diagrams/FluidsDiagram';
+import { GravityDiagram } from './lib/diagrams/GravityDiagram';
 import { GraphModule } from './lib/diagrams/GraphModule';
 import type { GraphMode } from './lib/diagrams/GraphModule';
 
@@ -432,6 +433,26 @@ const PRESETS: Record<string, PhysicsConfig> = {
       sphereDensity: 2200,
       gravity: 9.8
     }
+  },
+  'gravity-kepler': {
+    type: 'gravity',
+    mode: 'kepler',
+    kepler: {
+      eccentricity: 0.5,
+      semiMajorAxis: 3.0,
+      showSectors: true,
+      simulationSpeed: 1.0
+    },
+    twobody: {
+      massRatio: 1.0,
+      initialDistance: 3.0,
+      initialVelocity: 1.5
+    },
+    escape: {
+      launchVelocity: 5.0,
+      planetMass: 100.0,
+      planetRadius: 1.0
+    }
   }
 };
 
@@ -456,6 +477,7 @@ let shmDiagram: ShmDiagram;
 let waveDiagram: WaveDiagram;
 let mechanicsDiagram: MechanicsDiagram;
 let fluidsDiagram: FluidsDiagram;
+let gravityDiagram: GravityDiagram;
 
 // DOM Elements
 const selectPreset = document.getElementById('select-preset') as HTMLSelectElement;
@@ -493,6 +515,7 @@ function init() {
   waveDiagram = new WaveDiagram(pc);
   mechanicsDiagram = new MechanicsDiagram(pc);
   fluidsDiagram = new FluidsDiagram(pc);
+  gravityDiagram = new GravityDiagram(pc);
 
   // Load initial preset
   loadPreset('shm-horizontal');
@@ -1032,6 +1055,10 @@ function applyConfig(config: PhysicsConfig) {
     } else if (config.mode === 'viscosity') {
       graphTitle.innerText = 'Real-Time Graph: POSITION & VELOCITY CONVERGENCE';
     }
+  } else if (config.type === 'gravity') {
+    gravityDiagram.setConfig(config);
+    graphCard.classList.add('hidden');
+    selectGraphMode.classList.add('hidden');
   }
 
   // Generate controls UI
@@ -1053,6 +1080,8 @@ function updateTitles(config: PhysicsConfig) {
     canvasTitle.innerText = `Classical Mechanics: ${config.mode.toUpperCase()}`;
   } else if (config.type === 'fluids') {
     canvasTitle.innerText = `Fluid Mechanics: ${config.mode.toUpperCase()}`;
+  } else if (config.type === 'gravity') {
+    canvasTitle.innerText = `Gravitation & Orbital Mechanics: ${config.mode.toUpperCase()}`;
   }
 }
 
@@ -1312,6 +1341,26 @@ function renderSliders(config: PhysicsConfig) {
         fluidsDiagram.setConfig(config);
       });
     }
+  } else if (config.type === 'gravity') {
+    if (config.mode === 'kepler' && config.kepler) {
+      const kep = config.kepler;
+      addSlider('Orbit Eccentricity (e)', 0.0, 0.8, 0.05, kep.eccentricity, (v) => {
+        kep.eccentricity = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Semi-Major Axis a (m)', 1.0, 4.0, 0.1, kep.semiMajorAxis, (v) => {
+        kep.semiMajorAxis = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Simulation Speed', 0.2, 5.0, 0.1, kep.simulationSpeed, (v) => {
+        kep.simulationSpeed = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Show Sector Sweeps (0=No, 1=Yes)', 0, 1, 1, kep.showSectors ? 1 : 0, (v) => {
+        kep.showSectors = (v === 1);
+        gravityDiagram.setConfig(config);
+      });
+    }
   }
 }
 
@@ -1357,6 +1406,8 @@ function resetSimulation() {
     mechanicsDiagram.resetState();
   } else if (activeConfig.type === 'fluids') {
     fluidsDiagram.resetState();
+  } else if (activeConfig.type === 'gravity') {
+    gravityDiagram.resetState();
   }
   drawActiveSimulation();
 }
@@ -1449,6 +1500,8 @@ function stepSimulation(dt: number) {
     mechanicsDiagram.step(dt);
   } else if (activeConfig.type === 'fluids') {
     fluidsDiagram.step(dt);
+  } else if (activeConfig.type === 'gravity') {
+    gravityDiagram.step(dt);
   }
 }
 
@@ -1468,6 +1521,8 @@ function drawActiveSimulation() {
   } else if (activeConfig.type === 'fluids') {
     fluidsDiagram.draw(pc);
     graphModule.drawFluids(fluidsDiagram.history, activeConfig.mode);
+  } else if (activeConfig.type === 'gravity') {
+    gravityDiagram.draw();
   }
 }
 
@@ -1671,6 +1726,22 @@ function updateStatusBar() {
       statusExtra3.classList.remove('hidden');
       statusExtra3.querySelector('.status-label')!.innerHTML = 'Viscosity η:';
       statusExtra3.querySelector('.status-value')!.innerHTML = `${viscosity.toFixed(2)} Pa·s`;
+    }
+  } else if (activeConfig.type === 'gravity') {
+    statusTime.innerText = `${gravityDiagram.t.toFixed(2)}s`;
+    if (activeConfig.mode === 'kepler' && activeConfig.kepler) {
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Position (X, Y):';
+      statusExtra1.querySelector('.status-value')!.innerHTML = `(${gravityDiagram.planetX.toFixed(2)}, ${gravityDiagram.planetY.toFixed(2)})`;
+
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Speed (v):';
+      const v = Math.sqrt(gravityDiagram.planetVx * gravityDiagram.planetVx + gravityDiagram.planetVy * gravityDiagram.planetVy);
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${v.toFixed(2)} m/s`;
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Eccentricity (e):';
+      statusExtra3.querySelector('.status-value')!.innerHTML = `${activeConfig.kepler.eccentricity.toFixed(2)}`;
     }
   }
 }
