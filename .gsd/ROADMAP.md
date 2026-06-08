@@ -24,7 +24,7 @@
 **Objective**: Implement automated closed-cycle engine presets (Carnot cycle) and coordinate mapping for thermodynamic state tracking.
 
 ### Phase 4: Statistical Entropy & Gas Diffusion
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Implement a split-chamber container with different gas species, simulating barrier removal, molecular mixing, and real-time entropy calculation.
 
 ### Phase 5: UI Panel Controls, Plots, & Polish
