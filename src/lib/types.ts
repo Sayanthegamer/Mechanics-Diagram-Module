@@ -1,4 +1,4 @@
-export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids';
+export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids' | 'gravity';
 
 export interface BaseConfig {
   type: DiagramType;
@@ -161,6 +161,34 @@ export interface FluidsConfig extends BaseConfig {
   };
 }
 
-export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig;
+// ------------------ GRAVITY & ORBITAL MECHANICS ------------------
+export interface KeplerianParams {
+  eccentricity: number; // e (0 to 0.8)
+  semiMajorAxis: number; // a (arbitrary canvas scale units, e.g. 1.0 to 4.0)
+  showSectors: boolean; // toggle Kepler's 2nd Law sector sweeping
+  simulationSpeed: number;
+}
+
+export interface TwoBodyParams {
+  massRatio: number; // m2 / m1
+  initialDistance: number;
+  initialVelocity: number;
+}
+
+export interface EscapeVelocityParams {
+  launchVelocity: number;
+  planetMass: number;
+  planetRadius: number;
+}
+
+export interface GravityConfig extends BaseConfig {
+  type: 'gravity';
+  mode: 'kepler' | 'twobody' | 'escape';
+  kepler: KeplerianParams;
+  twobody: TwoBodyParams;
+  escape: EscapeVelocityParams;
+}
+
+export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig;
 
 
