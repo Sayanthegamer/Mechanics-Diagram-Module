@@ -1,5 +1,6 @@
 # GSD Project State
 
 ## Current Position
-- **Milestone**: v3.0 (completed)
-- **Status**: ✅ All phases completed and verified
+- **Milestone**: v4.0 (Thermodynamics & Kinetic Theory)
+- **Phase**: Not started
+- **Status**: Milestone planned
