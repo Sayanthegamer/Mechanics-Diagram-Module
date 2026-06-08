@@ -12,6 +12,6 @@ This file tracks outstanding feature requests, optimizations, and technical debt
 - [x] **Mobile/Touch Support**: Better touch-event handlers for parameter dragging. (Done in Phase 4)
 
 ## Maintenance & Refactoring
-- [ ] **RK4 Integrator**: Propose Runge-Kutta 4th order solver option for systems with heavy damping or stiff springs to reduce numerical energy drift.
+- [x] **RK4 Integrator**: Propose Runge-Kutta 4th order solver option for systems with heavy damping or stiff springs to reduce numerical energy drift. (Done in Sprint 2)
 - [x] **Panning/Scrolling**: Implement simulation space scrolling and repositioning of the view of the simulation (allow users to drag/pan the canvas viewport). (Done in Phase 7)
-- [ ] fix viewport dragging for all `medium` — 2026-06-08
+- [x] fix viewport dragging for all `medium` — 2026-06-08 (Done in Sprint 2)

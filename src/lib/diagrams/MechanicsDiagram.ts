@@ -400,25 +400,25 @@ export class MechanicsDiagram {
     const { mode } = this.config;
 
     if (mode === 'projectile') {
-      this.pc.originX = this.pc.canvas.clientWidth * 0.15;
-      this.pc.originY = this.pc.canvas.clientHeight * 0.8;
+      this.pc.originX = this.pc.canvas.clientWidth * 0.15 + this.pc.panX;
+      this.pc.originY = this.pc.canvas.clientHeight * 0.8 + this.pc.panY;
       this.drawProjectile();
     } else if (mode === 'pulley') {
-      this.pc.originX = this.pc.canvas.clientWidth / 2;
+      this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
       // Inclined wedge is taller — push origin lower so the peak fits
       if (this.config.pulley.type === 'inclined') {
-        this.pc.originY = this.pc.canvas.clientHeight * 0.55;
+        this.pc.originY = this.pc.canvas.clientHeight * 0.55 + this.pc.panY;
       } else {
-        this.pc.originY = this.pc.canvas.clientHeight * 0.25;
+        this.pc.originY = this.pc.canvas.clientHeight * 0.25 + this.pc.panY;
       }
       this.drawPulleySystem();
     } else if (mode === 'collision') {
-      this.pc.originX = this.pc.canvas.clientWidth / 2;
-      this.pc.originY = this.pc.canvas.clientHeight / 2;
+      this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
+      this.pc.originY = this.pc.canvas.clientHeight / 2 + this.pc.panY;
       this.drawCollisions();
     } else if (mode === 'circular') {
-      this.pc.originX = this.pc.canvas.clientWidth / 2;
-      this.pc.originY = this.pc.canvas.clientHeight / 2;
+      this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
+      this.pc.originY = this.pc.canvas.clientHeight / 2 + this.pc.panY;
       this.drawCircular();
     }
   }

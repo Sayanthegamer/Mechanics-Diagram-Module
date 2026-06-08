@@ -114,7 +114,8 @@ const PRESETS: Record<string, PhysicsConfig> = {
     drivingForce: 0.0,
     drivingFreq: 0.0,
     showEnergyGraph: true,
-    showPhaseSpace: false
+    showPhaseSpace: false,
+    integrator: 'euler'
   },
   'shm-vertical': {
     type: 'shm',
@@ -129,7 +130,8 @@ const PRESETS: Record<string, PhysicsConfig> = {
     drivingForce: 0.0,
     drivingFreq: 0.0,
     showEnergyGraph: true,
-    showPhaseSpace: false
+    showPhaseSpace: false,
+    integrator: 'euler'
   },
   'shm-pendulum': {
     type: 'shm',
@@ -144,7 +146,8 @@ const PRESETS: Record<string, PhysicsConfig> = {
     drivingForce: 0.0,
     drivingFreq: 0.0,
     showEnergyGraph: true,
-    showPhaseSpace: false
+    showPhaseSpace: false,
+    integrator: 'euler'
   },
   'shm-damped': {
     type: 'shm',
@@ -159,7 +162,8 @@ const PRESETS: Record<string, PhysicsConfig> = {
     drivingForce: 4.5,
     drivingFreq: 2.2, // driven resonance
     showEnergyGraph: false,
-    showPhaseSpace: true
+    showPhaseSpace: true,
+    integrator: 'euler'
   },
   'wave-transverse': {
     type: 'wave',
@@ -1218,6 +1222,10 @@ function renderSliders(config: PhysicsConfig) {
     });
     addSlider('Driving Amplitude (N)', 0, 10, 0.5, config.drivingForce, (v) => {
       config.drivingForce = v;
+      shmDiagram.setConfig(config);
+    });
+    addSlider('Integrator (0=Euler, 1=RK4)', 0, 1, 1, config.integrator === 'rk4' ? 1 : 0, (v) => {
+      config.integrator = (v === 1) ? 'rk4' : 'euler';
       shmDiagram.setConfig(config);
     });
 

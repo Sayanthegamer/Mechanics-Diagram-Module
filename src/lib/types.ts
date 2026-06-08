@@ -62,6 +62,7 @@ export interface ShmConfig extends BaseConfig {
   drivingFreq: number; // omega_d frequency
   showEnergyGraph: boolean;
   showPhaseSpace: boolean;
+  integrator?: 'euler' | 'rk4';
 }
 
 // ------------------ WAVES ------------------

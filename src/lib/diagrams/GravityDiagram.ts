@@ -271,9 +271,9 @@ export class GravityDiagram {
     this.pc.clear();
     this.pc.resetOrigin();
 
-    // Center origin on canvas
-    this.pc.originX = this.pc.canvas.clientWidth / 2;
-    this.pc.originY = this.pc.canvas.clientHeight / 2;
+    // Center origin on canvas with pan offsets
+    this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
+    this.pc.originY = this.pc.canvas.clientHeight / 2 + this.pc.panY;
 
     const { mode, kepler } = this.config;
 

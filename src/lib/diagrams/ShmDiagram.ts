@@ -61,31 +61,51 @@ export class ShmDiagram {
 
     let a = 0; // acceleration or angular acceleration
 
-    if (systemType === 'spring-mass-horizontal' || systemType === 'spring-mass-vertical') {
-      const k = springK;
-      // Equation of motion: m*x'' + b*x' + k*x = F_d*cos(w_d*t)
-      // a = x'' = (-k*x - b*v + F_d*cos(w_d*t)) / m
-      const springF = -k * this.x;
-      const dampingF = -b * this.v;
-      const drivingF = Fd * Math.cos(wd * this.t);
+    const getDerivatives = (t: number, x: number, v: number): [number, number] => {
+      let accel = 0;
+      if (systemType === 'spring-mass-horizontal' || systemType === 'spring-mass-vertical') {
+        const k = springK;
+        accel = (-k * x - b * v + Fd * Math.cos(wd * t)) / m;
+      } else if (systemType === 'simple-pendulum') {
+        const L = length;
+        accel = (-(m * g * L * Math.sin(x)) - b * L * L * v + Fd * Math.cos(wd * t)) / (m * L * L);
+      }
+      return [v, accel];
+    };
 
-      a = (springF + dampingF + drivingF) / m;
-      this.v += a * dt;
-      this.x += this.v * dt;
+    if (this.config.integrator === 'rk4') {
+      const [dx1, dv1] = getDerivatives(this.t, this.x, this.v);
+      const [dx2, dv2] = getDerivatives(this.t + dt / 2, this.x + dx1 * dt / 2, this.v + dv1 * dt / 2);
+      const [dx3, dv3] = getDerivatives(this.t + dt / 2, this.x + dx2 * dt / 2, this.v + dv2 * dt / 2);
+      const [dx4, dv4] = getDerivatives(this.t + dt, this.x + dx3 * dt, this.v + dv3 * dt);
 
-    } else if (systemType === 'simple-pendulum') {
-      const L = length;
-      // Equation of motion: m*L^2 * theta'' + b*L^2 * theta' + m*g*L*sin(theta) = F_d*cos(w_d*t)
-      // theta'' = (-m*g*L*sin(theta) - b*L^2*theta' + F_d*cos(w_d*t)) / (m*L^2)
-      // theta'' = -(g/L)*sin(theta) - (b/m)*theta' + F_d/(m*L^2)*cos(w_d*t)
-      const gravityTorque = -m * g * L * Math.sin(this.x);
-      const dampingTorque = -b * L * L * this.v;
-      const drivingTorque = Fd * Math.cos(wd * this.t);
-      const MoI = m * L * L; // Moment of Inertia
+      this.x += (dt / 6) * (dx1 + 2 * dx2 + 2 * dx3 + dx4);
+      this.v += (dt / 6) * (dv1 + 2 * dv2 + 2 * dv3 + dv4);
+      
+      const [_, finalA] = getDerivatives(this.t + dt, this.x, this.v);
+      a = finalA;
+    } else {
+      // Default: Euler-Cromer
+      if (systemType === 'spring-mass-horizontal' || systemType === 'spring-mass-vertical') {
+        const k = springK;
+        const springF = -k * this.x;
+        const dampingF = -b * this.v;
+        const drivingF = Fd * Math.cos(wd * this.t);
 
-      a = (gravityTorque + dampingTorque + drivingTorque) / MoI;
-      this.v += a * dt;
-      this.x += this.v * dt;
+        a = (springF + dampingF + drivingF) / m;
+        this.v += a * dt;
+        this.x += this.v * dt;
+      } else if (systemType === 'simple-pendulum') {
+        const L = length;
+        const gravityTorque = -m * g * L * Math.sin(this.x);
+        const dampingTorque = -b * L * L * this.v;
+        const drivingTorque = Fd * Math.cos(wd * this.t);
+        const MoI = m * L * L;
+
+        a = (gravityTorque + dampingTorque + drivingTorque) / MoI;
+        this.v += a * dt;
+        this.x += this.v * dt;
+      }
     }
 
     this.t += dt;
@@ -134,16 +154,16 @@ export class ShmDiagram {
 
     // Setup coordinates for SHM
     if (systemType === 'spring-mass-horizontal') {
-      this.pc.originX = this.pc.canvas.clientWidth * 0.25; // Wall on the left
-      this.pc.originY = this.pc.canvas.clientHeight * 0.6; // Ground line
+      this.pc.originX = this.pc.canvas.clientWidth * 0.25 + this.pc.panX; // Wall on the left
+      this.pc.originY = this.pc.canvas.clientHeight * 0.6 + this.pc.panY; // Ground line
       this.drawHorizontalSpringMass();
     } else if (systemType === 'spring-mass-vertical') {
-      this.pc.originX = this.pc.canvas.clientWidth / 2;
-      this.pc.originY = this.pc.canvas.clientHeight * 0.25; // Ceiling top
+      this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
+      this.pc.originY = this.pc.canvas.clientHeight * 0.25 + this.pc.panY; // Ceiling top
       this.drawVerticalSpringMass();
     } else if (systemType === 'simple-pendulum') {
-      this.pc.originX = this.pc.canvas.clientWidth / 2;
-      this.pc.originY = this.pc.canvas.clientHeight * 0.25; // Pivot top
+      this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
+      this.pc.originY = this.pc.canvas.clientHeight * 0.25 + this.pc.panY; // Pivot top
       this.drawPendulum();
     }
   }

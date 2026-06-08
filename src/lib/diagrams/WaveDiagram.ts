@@ -40,8 +40,8 @@ export class WaveDiagram {
 
     const { waveType } = this.config;
 
-    // Center coordinates for wave drawing
-    this.pc.originY = this.pc.canvas.clientHeight / 2;
+    // Center coordinates for wave drawing with pan offsets
+    this.pc.originY = this.pc.canvas.clientHeight / 2 + this.pc.panY;
 
     if (waveType === 'transverse') {
       this.drawTransverseWave();

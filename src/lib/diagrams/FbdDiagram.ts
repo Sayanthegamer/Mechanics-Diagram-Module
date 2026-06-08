@@ -182,10 +182,14 @@ export class FbdDiagram {
 
     // Adjust origin for drawing
     if (this.config.surfaceType === 'inclined') {
-      this.pc.originX = this.pc.canvas.clientWidth * 0.45;
-      this.pc.originY = this.pc.canvas.clientHeight * 0.6;
+      this.pc.originX = this.pc.canvas.clientWidth * 0.45 + this.pc.panX;
+      this.pc.originY = this.pc.canvas.clientHeight * 0.6 + this.pc.panY;
     } else if (this.config.surfaceType === 'horizontal') {
-      this.pc.originY = this.pc.canvas.clientHeight * 0.6;
+      this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
+      this.pc.originY = this.pc.canvas.clientHeight * 0.6 + this.pc.panY;
+    } else {
+      this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
+      this.pc.originY = this.pc.canvas.clientHeight / 2 + this.pc.panY;
     }
 
     if (this.config.showGrid) {
