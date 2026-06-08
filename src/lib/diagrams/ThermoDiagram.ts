@@ -27,6 +27,17 @@ export class ThermoDiagram {
   public barrierClosed: boolean = true;
   public yBarrier: number = -4.0;
 
+  // Thermodynamic process state
+  public activeProcess: 'none' | 'isothermal' | 'isobaric' | 'isochoric' | 'adiabatic' = 'none';
+  public heatTransfer: 'none' | 'heating' | 'cooling' = 'none';
+
+  // Reference state variables
+  public p0: number = 0.5;
+  public v0: number = 3.0;
+  public t0: number = 3.0;
+
+  private readonly gamma: number = 1.67;
+
   // Capped history array for graphing
   public history: { t: number; kineticEnergy: number; potentialEnergy: number; totalEnergy: number }[] = [];
 
@@ -57,11 +68,20 @@ export class ThermoDiagram {
     this.history = [];
     this.barrierClosed = true;
     this.yBarrier = -4.0;
+    this.activeProcess = 'none';
+    this.heatTransfer = 'none';
 
     this.volume = this.config.volume;
     this.temperature = this.config.temperature;
 
     this.initializeParticles();
+    this.captureReferenceState();
+  }
+
+  public captureReferenceState(): void {
+    this.v0 = this.volume;
+    this.t0 = this.temperature;
+    this.p0 = this.pressure;
   }
 
   private initializeParticles(): void {
@@ -138,6 +158,88 @@ export class ThermoDiagram {
 
     this.t += dt;
 
+    // 1. Solve thermodynamic transition formulas and update volume/temperature
+    let targetVolume = this.config.volume;
+    if (this.activeProcess === 'isochoric') {
+      targetVolume = this.v0;
+    }
+
+    // Smoothly transition volume towards target
+    this.volume += (targetVolume - this.volume) * (1 - Math.exp(-10 * dt));
+    // Keep volume in bounds
+    this.volume = Math.max(1.0, Math.min(5.0, this.volume));
+
+    let targetT = this.temperature;
+
+    if (this.activeProcess === 'isothermal') {
+      targetT = this.t0;
+      this.pressure = this.p0 * (this.v0 / this.volume);
+    } else if (this.activeProcess === 'isobaric') {
+      this.pressure = this.p0;
+      targetT = this.t0 * (this.volume / this.v0);
+    } else if (this.activeProcess === 'adiabatic') {
+      this.pressure = this.p0 * Math.pow(this.v0 / this.volume, this.gamma);
+      targetT = this.t0 * Math.pow(this.v0 / this.volume, this.gamma - 1);
+    } else if (this.activeProcess === 'isochoric') {
+      // In Isochoric, volume remains at v0
+      this.volume = this.v0;
+      if (this.heatTransfer === 'heating') {
+        targetT = this.temperature + 1.0 * dt;
+      } else if (this.heatTransfer === 'cooling') {
+        targetT = this.temperature - 1.0 * dt;
+      } else {
+        targetT = this.t0;
+      }
+      targetT = Math.max(0.5, Math.min(15.0, targetT));
+      this.pressure = this.p0 * (targetT / this.t0);
+    } else {
+      // activeProcess === 'none'
+      targetT = this.config.temperature;
+    }
+
+    // Set heatTransfer automatically if activeProcess === 'none'
+    if (this.activeProcess === 'none') {
+      const tempDiff = this.config.temperature - this.temperature;
+      if (tempDiff > 0.05) {
+        this.heatTransfer = 'heating';
+      } else if (tempDiff < -0.05) {
+        this.heatTransfer = 'cooling';
+      } else {
+        this.heatTransfer = 'none';
+      }
+    } else {
+      // For process modes, set heatTransfer based on volume changes relative to v0:
+      if (this.activeProcess === 'isothermal' || this.activeProcess === 'isobaric') {
+        if (this.volume > this.v0 + 0.02) {
+          this.heatTransfer = 'heating';
+        } else if (this.volume < this.v0 - 0.02) {
+          this.heatTransfer = 'cooling';
+        } else {
+          this.heatTransfer = 'none';
+        }
+      } else if (this.activeProcess === 'adiabatic') {
+        this.heatTransfer = 'none';
+      }
+    }
+
+    // 2. Perform velocity scaling to align particle speeds with macroscopic temperature
+    const tCurrent = this.temperature;
+    if (tCurrent > 1e-4 && targetT > 1e-4) {
+      const alpha = Math.sqrt(targetT / tCurrent);
+      const maxSpeed = 30.0;
+      for (const p of this.particles) {
+        p.vx *= alpha;
+        p.vy *= alpha;
+
+        // Prevent speed runaway
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed > maxSpeed) {
+          p.vx = (p.vx / speed) * maxSpeed;
+          p.vy = (p.vy / speed) * maxSpeed;
+        }
+      }
+    }
+
     const xRight = this.xLeft + this.volume * 2.4;
     const xMid = (this.xLeft + xRight) / 2;
 
@@ -151,34 +253,32 @@ export class ThermoDiagram {
       }
     }
 
-    // 1. Particle positions Verlet step update
+    // 3. Particle positions Verlet step update
     for (const p of this.particles) {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
 
-      // Wall boundary reflections
-      // Left Wall
+      // Keep particles strictly within container boundaries (prevent clipping during compression)
       if (p.x < this.xLeft + p.radius) {
         p.x = this.xLeft + p.radius;
-        p.vx = -p.vx;
+        p.vx = Math.abs(p.vx);
         this.accumulatedImpulse += 2 * p.mass * Math.abs(p.vx);
-      }
-      // Right Wall (piston boundary)
-      if (p.x > xRight - p.radius) {
+      } else if (p.x > xRight - p.radius) {
         p.x = xRight - p.radius;
-        p.vx = -p.vx;
+        p.vx = -Math.abs(p.vx);
         this.accumulatedImpulse += 2 * p.mass * Math.abs(p.vx);
       }
+
       // Top Wall
       if (p.y > this.yTop - p.radius) {
         p.y = this.yTop - p.radius;
-        p.vy = -p.vy;
+        p.vy = -Math.abs(p.vy);
         this.accumulatedImpulse += 2 * p.mass * Math.abs(p.vy);
       }
       // Bottom Wall
       if (p.y < this.yBottom + p.radius) {
         p.y = this.yBottom + p.radius;
-        p.vy = -p.vy;
+        p.vy = Math.abs(p.vy);
         this.accumulatedImpulse += 2 * p.mass * Math.abs(p.vy);
       }
 
@@ -191,11 +291,11 @@ export class ThermoDiagram {
 
           if (crossedLeft) {
             p.x = xMid - p.radius;
-            p.vx = -p.vx;
+            p.vx = -Math.abs(p.vx);
             this.accumulatedImpulse += 2 * p.mass * Math.abs(p.vx);
           } else if (crossedRight) {
             p.x = xMid + p.radius;
-            p.vx = -p.vx;
+            p.vx = Math.abs(p.vx);
             this.accumulatedImpulse += 2 * p.mass * Math.abs(p.vx);
           }
         }
