@@ -60,8 +60,12 @@ Each diagram class follows a unified interface: `setConfig(config)`, `resetState
   - Implements hydraulic cylinder volume conservation constraint equations.
   - Solves Bernoulli Venturi velocity and pressure columns.
   - Models falling sphere force vectors (gravity, buoyancy, drag) and terminal velocity convergence.
+- **GravityDiagram.ts**:
+  - Simulates dynamic gravitational systems including Keplerian orbit sector sweeping, Two-Body barycentric orbits, and Escape velocity probe launches.
+  - Implements Kepler's solver (Newton-Raphson) and high-accuracy RK4 ODE integrator.
+  - Calculates kinetic and potential energy components in real-time.
 - **GraphModule.ts**:
-  - Plots real-time data points (kinematics, energies, phase space orbits, fluid displacements, flow speeds, and pressures) on a separate HTML5 Canvas. Supports customized scaling and legends for all Fluids presets.
+  - Plots real-time data points (kinematics, energies, phase space orbits, fluid displacements, flow speeds, and pressures) on a separate HTML5 Canvas. Supports customized scaling, legends, and dynamic energy conservation plots.
 
 ### 4. Interactive & Accessibility Subsystem
 - **Files**: `src/main.ts`
