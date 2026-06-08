@@ -43,3 +43,18 @@
 - **Crash Behavior**: If the probe collides with the planet's surface, the simulation will display a non-obstructive message: `"Probe crash landed"` on the screen, and freeze simulation updates until reset.
 - **Approach**: Option A (Numerical Integration). Use numerical integration (Velocity Verlet/RK4) to step the probe trajectory, ensuring real-time response to control changes, gravity crashes, and open-ended trajectories.
 - **Off-Screen Reset**: Auto-reset/recycle the probe launch if it goes too far off-screen (e.g., distance > 25 units) to keep the simulation clean.
+
+---
+
+## Phase 4 Decisions
+
+**Date:** 2026-06-08
+
+### Energy Conservation Real-Time Graph
+- **Scope**: Support real-time plotting of Kinetic, Potential, and Total energy for all three gravity modes (Keplerian, Two-Body, and Escape Launcher).
+- **Formulation**:
+  - Keplerian: $GM = 10.0$, planet mass $m = 1.0$, $KE = \frac{1}{2}v^2$, $PE = -\frac{10}{r}$.
+  - Two-Body: $G = 1.0$, $KE = \frac{1}{2}m_1 v_1^2 + \frac{1}{2}m_2 v_2^2$, $PE = -\frac{G m_1 m_2}{\sqrt{r^2 + \epsilon^2}}$ where $\epsilon = 0.15$ softening matches integration.
+  - Escape: $G = 1.0$, probe mass $m = 1.0$, $KE = \frac{1}{2}v^2$, $PE = -\frac{G M_p}{r}$.
+- **Approach**: Option B (Generic State Form). We will introduce a common interface `EnergyStatePoint` with fields `{ t, kineticEnergy, potentialEnergy, totalEnergy }` and update `GraphModule.draw()` to accept it. Both `ShmDiagram` and `GravityDiagram` will track history conforming to this interface.
+- **Visuals & Resets**: Clear the graph history when resetting the simulation or when the escape launcher probe resets/crashes to prevent discontinuous line jumps on the plot.
