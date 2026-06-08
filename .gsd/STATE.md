@@ -1,9 +1,9 @@
 # GSD Project State
 
 ## Current Position
-- **Phase**: 5 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Sprint**: rethink-carnot
+- **Status**: Sprint in progress
+- **Milestone**: v4.0 (complete, pausing verification for sprint)
 
 ## Last Session Summary
 Phase 5 (UI Panel Controls, Plots, & Polish) executed successfully. 1 plan, 4 tasks completed and verified.
@@ -21,4 +21,4 @@ We are implementing Milestone v4.0 (Thermodynamics & Kinetic Theory).
 - All must-haves for Milestone v4.0 are completed and pass automated checks.
 
 ## Next Steps
-1. Verify Milestone v4.0 and finalize.
+1. Finish sprint rethink-carnot
