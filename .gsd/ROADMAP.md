@@ -5,7 +5,7 @@
 
 ## Must-Haves
 - [x] Kepler's Laws Simulation: planet orbiting a star with eccentricity/semi-major axis sliders and real-time sweeping of equal-area sectors.
-- [ ] Two-Body Barycentric Orbit Simulation: two comparable masses orbiting a common center of mass (barycenter) with trail lines.
+- [x] Two-Body Barycentric Orbit Simulation: two comparable masses orbiting a common center of mass (barycenter) with trail lines.
 - [ ] Escape Velocity launcher: launches a probe from a planet, dynamically plotting the orbital trajectory types (circle, ellipse, parabola, hyperbola) with a live initial speed control.
 - [ ] Real-time Energy Plot Integration: dynamic graphs showing Kinetic, Potential, and Total energy conservation synchronized with the orbits.
 
@@ -16,7 +16,7 @@
 **Objective**: Build the mathematical Keplerian solver and render the planetary orbit with interactive parameters and sweeping area animations.
 
 ### Phase 2: Two-Body Barycentric Gravity Simulation
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Implement stable numerical ODE solver (RK4 or Verlet) to simulate two gravitating bodies of comparable mass around their barycenter.
 
 ### Phase 3: Escape Velocity & Conic Section Trajectories

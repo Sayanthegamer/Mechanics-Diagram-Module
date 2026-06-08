@@ -453,6 +453,26 @@ const PRESETS: Record<string, PhysicsConfig> = {
       planetMass: 100.0,
       planetRadius: 1.0
     }
+  },
+  'gravity-twobody': {
+    type: 'gravity',
+    mode: 'twobody',
+    kepler: {
+      eccentricity: 0.5,
+      semiMajorAxis: 3.0,
+      showSectors: true,
+      simulationSpeed: 1.0
+    },
+    twobody: {
+      massRatio: 1.0,
+      initialDistance: 3.0,
+      initialVelocity: 1.5
+    },
+    escape: {
+      launchVelocity: 5.0,
+      planetMass: 100.0,
+      planetRadius: 1.0
+    }
   }
 };
 
@@ -1360,6 +1380,20 @@ function renderSliders(config: PhysicsConfig) {
         kep.showSectors = (v === 1);
         gravityDiagram.setConfig(config);
       });
+    } else if (config.mode === 'twobody' && config.twobody) {
+      const tb = config.twobody;
+      addSlider('Mass Ratio (m2/m1)', 0.05, 5.0, 0.05, tb.massRatio, (v) => {
+        tb.massRatio = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Initial Distance', 1.0, 5.0, 0.1, tb.initialDistance, (v) => {
+        tb.initialDistance = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Initial Velocity', 0.2, 4.0, 0.1, tb.initialVelocity, (v) => {
+        tb.initialVelocity = v;
+        gravityDiagram.setConfig(config);
+      });
     }
   }
 }
@@ -1742,6 +1776,20 @@ function updateStatusBar() {
       statusExtra3.classList.remove('hidden');
       statusExtra3.querySelector('.status-label')!.innerHTML = 'Eccentricity (e):';
       statusExtra3.querySelector('.status-value')!.innerHTML = `${activeConfig.kepler.eccentricity.toFixed(2)}`;
+    } else if (activeConfig.mode === 'twobody') {
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Positions (r₁, r₂):';
+      statusExtra1.querySelector('.status-value')!.innerHTML = `(${gravityDiagram.x1.toFixed(1)}, ${gravityDiagram.y1.toFixed(1)}) / (${gravityDiagram.x2.toFixed(1)}, ${gravityDiagram.y2.toFixed(1)})`;
+
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Speeds (v₁, v₂):';
+      const v1 = Math.sqrt(gravityDiagram.vx1 * gravityDiagram.vx1 + gravityDiagram.vy1 * gravityDiagram.vy1);
+      const v2 = Math.sqrt(gravityDiagram.vx2 * gravityDiagram.vx2 + gravityDiagram.vy2 * gravityDiagram.vy2);
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${v1.toFixed(2)} / ${v2.toFixed(2)} m/s`;
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Barycenter:';
+      statusExtra3.querySelector('.status-value')!.innerHTML = '(0.0, 0.0)';
     }
   }
 }
