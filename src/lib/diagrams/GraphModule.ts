@@ -4,6 +4,15 @@ import type { FluidsState } from './FluidsDiagram';
 
 export type GraphMode = 'kinematics' | 'energy' | 'phase-space';
 
+export interface EnergyStatePoint {
+  t: number;
+  kineticEnergy: number;
+  potentialEnergy: number;
+  totalEnergy: number;
+  x?: number;
+  v?: number;
+}
+
 export class GraphModule {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -44,7 +53,7 @@ export class GraphModule {
   }
 
   // Draw real-time plot
-  public draw(history: ShmState[]): void {
+  public draw(history: EnergyStatePoint[]): void {
     this.clear();
     if (history.length < 2) return;
 
@@ -62,7 +71,7 @@ export class GraphModule {
     const graphHeight = height - padding.top - padding.bottom;
 
     if (this.mode === 'phase-space') {
-      this.drawPhaseSpace(history, graphWidth, graphHeight, padding, axisColor, gridColor, textColor);
+      this.drawPhaseSpace(history as ShmState[], graphWidth, graphHeight, padding, axisColor, gridColor, textColor);
       return;
     }
 
@@ -78,8 +87,8 @@ export class GraphModule {
     } else {
       // kinematics (plots x and v)
       history.forEach((d) => {
-        yMin = Math.min(yMin, d.x, d.v);
-        yMax = Math.max(yMax, d.x, d.v);
+        yMin = Math.min(yMin, d.x ?? 0, d.v ?? 0);
+        yMax = Math.max(yMax, d.x ?? 0, d.v ?? 0);
       });
     }
 
@@ -151,7 +160,7 @@ export class GraphModule {
 
     // 3. Plot curves
     const plotCurve = (
-      getField: (s: ShmState) => number,
+      getField: (s: EnergyStatePoint) => number,
       color: string,
       label: string,
       legendIdx: number
@@ -191,8 +200,8 @@ export class GraphModule {
       plotCurve((d) => d.potentialEnergy, '#3b82f6', 'Potential (PE)', 1);
       plotCurve((d) => d.totalEnergy, '#ef4444', 'Total Energy', 2);
     } else {
-      plotCurve((d) => d.x, '#f59e0b', 'Position (x)', 0);
-      plotCurve((d) => d.v, '#10b981', 'Velocity (v)', 1);
+      plotCurve((d) => d.x ?? 0, '#f59e0b', 'Position (x)', 0);
+      plotCurve((d) => d.v ?? 0, '#10b981', 'Velocity (v)', 1);
     }
 
     this.ctx.restore();
