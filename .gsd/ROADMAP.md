@@ -21,5 +21,5 @@
 **Objective**: Implement pipe cross-section solvers, streamlines, Venturi tubes, and viscous drag terminal velocity physics.
 
 ### Phase 7: UI Integration, Plotting & Polish
-**Status**: ⬜ Not Started
-**Objective**: Connect the dashboard sidebar sliders, update the status bar, bind interactive drag handles for fluid properties, and plot pressure/velocity graphs.
+**Status**: ✅ Complete
+**Objective**: Connect the dashboard sidebar sliders, update the status bar, bind interactive drag handles for fluid properties, and plot pressure/velocity graphs. Also add simulation canvas panning/scrolling.
