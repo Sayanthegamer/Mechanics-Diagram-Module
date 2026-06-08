@@ -28,5 +28,5 @@
 **Objective**: Implement a split-chamber container with different gas species, simulating barrier removal, molecular mixing, and real-time entropy calculation.
 
 ### Phase 5: UI Panel Controls, Plots, & Polish
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Integrate control sliders, real-time graph plotting for PV diagrams/distributions/entropy, and verify compilation and performance at 60fps.
