@@ -180,6 +180,8 @@ export interface EscapeVelocityParams {
   launchVelocity: number;
   planetMass: number;
   planetRadius: number;
+  launchAltitude: number;
+  launchAngle: number;
 }
 
 export interface GravityConfig extends BaseConfig {

@@ -2,15 +2,15 @@
 
 ## Current Position
 - **Phase**: 3 (Escape Velocity & Conic Section Trajectories)
-- **Task**: Planning complete
-- **Status**: Ready for execution
+- **Task**: All tasks complete
+- **Status**: Verified
 
 ## Last Session Summary
-Phase 2 (Two-Body Barycentric Gravity Simulation) executed successfully. 2 plans, 5 tasks completed and verified. Sprint 2 closed. Phase 3 plans created.
+Phase 3 (Escape Velocity & Conic Section Trajectories) executed successfully. 2 plans, 7 tasks completed and verified.
 
 ## In-Progress Work
-- Files modified: None (All Phase 1 changes committed and pushed).
-- Tests status: All builds passing.
+- Files modified: None (All Phase 3 changes verified and committed).
+- Tests status: Production build successfully compiles.
 
 ## Blockers
 None.
@@ -18,22 +18,21 @@ None.
 ## Context Dump
 We are implementing Milestone v3.0 (Gravitation & Orbital Mechanics).
 - Phase 1 (Keplerian orbits) is fully done, verified in browser, and committed.
-- Phase 2 (Two-Body barycentric system) plans have been created and committed:
-  - Plan 2.1 focuses on Two-Body state variables, Velocity Verlet solver, and shifting coordinate system relative to the Barycenter Center of Mass: Rcom = (m1*x1 + m2*x2)/(m1+m2).
-  - Plan 2.2 focuses on UI sliders integration (m2/m1 mass ratio, initial distance, initial velocity), status bar integration, and rendering (overlapping trails, crosshair at barycenter, mass labels).
+- Phase 2 (Two-Body barycentric system) is fully done, verified in browser, and committed.
+- Phase 3 (Escape Velocity launcher) is fully done, verified in browser, and committed:
+  - Plan 3.1: Probe state variables, RK4 integration step, surface collision detection and boundary reset.
+  - Plan 3.2: Sliders for launch speed, angle, altitude, planet mass, and planet radius, on-canvas trajectory analysis details, and top-center red crash warning banner.
 
 ### Decisions Made
-- **Solver**: Newton-Raphson was used for Keplerian orbits (Phase 1); Velocity Verlet (symplectic) was selected for Two-Body orbits (Phase 2).
-- **Coordinate Reference**: Locked origin to the Barycenter (0,0) in two-body mode to center the paths on screen.
-
-### Approaches Tried
-- **Newton-Raphson Integration**: Implemented in GravityDiagram.ts and runs stably for eccentricity up to 0.8.
+- **Solver**: RK4 (Runge-Kutta 4th order) selected for Escape Velocity simulation to ensure high stability and accuracy.
+- **Trajectory Classification**: Real-time evaluation of specific orbital energy and eccentricity vector components to categorize orbits into Circular, Elliptic, Parabolic, or Hyperbolic.
+- **Crash feedback**: Added a non-obstructive `"PROBE CRASH LANDED"` banner at the top center of the canvas and froze simulation updates upon planet surface collision ($r \le R_p$).
 
 ### Files of Interest
-- `src/lib/types.ts`: extended with `gravity` DiagramType, GravityConfig, KeplerianParams, TwoBodyParams, EscapeVelocityParams.
-- `src/lib/diagrams/GravityDiagram.ts`: new gravity module implementing Keplerian orbits, Newton-Raphson solver, and sector sweeps.
-- `src/main.ts`: integrated GravityDiagram, loaded presets, and dynamic parameter sliders.
-- `index.html`: added "Gravitation & Orbits" dropdown select option.
+- `src/lib/types.ts`: added `launchAltitude` and `launchAngle` properties to `EscapeVelocityParams`.
+- `src/lib/diagrams/GravityDiagram.ts`: added state variables, RK4 solver, boundary resets, collision checks, and `drawEscape()` rendering logic.
+- `src/main.ts`: integrated escape presets, sliders, and status bar elements.
+- `index.html`: added "Gravity: Escape Velocity Launcher" option to presets dropdown.
 
 ## Next Steps
-1. Run `/execute 3` to start implementing Plan 3.1.
+1. Proceed to Phase 4 (Energy Conservation Real-Time Graph Integration).

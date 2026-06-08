@@ -453,9 +453,11 @@ const PRESETS: Record<string, PhysicsConfig> = {
       initialVelocity: 1.5
     },
     escape: {
-      launchVelocity: 5.0,
-      planetMass: 100.0,
-      planetRadius: 1.0
+      launchVelocity: 3.5,
+      planetMass: 15.0,
+      planetRadius: 0.8,
+      launchAltitude: 1.2,
+      launchAngle: 90.0
     }
   },
   'gravity-twobody': {
@@ -473,9 +475,33 @@ const PRESETS: Record<string, PhysicsConfig> = {
       initialVelocity: 1.5
     },
     escape: {
-      launchVelocity: 5.0,
-      planetMass: 100.0,
-      planetRadius: 1.0
+      launchVelocity: 3.5,
+      planetMass: 15.0,
+      planetRadius: 0.8,
+      launchAltitude: 1.2,
+      launchAngle: 90.0
+    }
+  },
+  'gravity-escape': {
+    type: 'gravity',
+    mode: 'escape',
+    kepler: {
+      eccentricity: 0.5,
+      semiMajorAxis: 3.0,
+      showSectors: true,
+      simulationSpeed: 1.0
+    },
+    twobody: {
+      massRatio: 1.0,
+      initialDistance: 3.0,
+      initialVelocity: 1.5
+    },
+    escape: {
+      launchVelocity: 3.5,
+      planetMass: 15.0,
+      planetRadius: 0.8,
+      launchAltitude: 1.2,
+      launchAngle: 90.0
     }
   }
 };
@@ -1402,6 +1428,28 @@ function renderSliders(config: PhysicsConfig) {
         tb.initialVelocity = v;
         gravityDiagram.setConfig(config);
       });
+    } else if (config.mode === 'escape' && config.escape) {
+      const esc = config.escape;
+      addSlider('Launch Speed (v₀)', 0.5, 8.0, 0.1, esc.launchVelocity, (v) => {
+        esc.launchVelocity = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Launch Altitude (r₀)', 0.8, 4.0, 0.1, esc.launchAltitude, (v) => {
+        esc.launchAltitude = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Launch Angle (θ°)', 0, 180, 5, esc.launchAngle, (v) => {
+        esc.launchAngle = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Planet Mass (Mₚ)', 1.0, 50.0, 1.0, esc.planetMass, (v) => {
+        esc.planetMass = v;
+        gravityDiagram.setConfig(config);
+      });
+      addSlider('Planet Radius (Rₚ)', 0.3, 2.0, 0.1, esc.planetRadius, (v) => {
+        esc.planetRadius = v;
+        gravityDiagram.setConfig(config);
+      });
     }
   }
 }
@@ -1798,6 +1846,26 @@ function updateStatusBar() {
       statusExtra3.classList.remove('hidden');
       statusExtra3.querySelector('.status-label')!.innerHTML = 'Barycenter:';
       statusExtra3.querySelector('.status-value')!.innerHTML = '(0.0, 0.0)';
+    } else if (activeConfig.mode === 'escape' && activeConfig.escape) {
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Probe Pos (X, Y):';
+      statusExtra1.querySelector('.status-value')!.innerHTML = `(${gravityDiagram.px.toFixed(2)}, ${gravityDiagram.py.toFixed(2)})`;
+
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Speed (v):';
+      const v = Math.sqrt(gravityDiagram.pvx * gravityDiagram.pvx + gravityDiagram.pvy * gravityDiagram.pvy);
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${v.toFixed(2)}`;
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Escape Speed (v_esc):';
+      const r = Math.sqrt(gravityDiagram.px * gravityDiagram.px + gravityDiagram.py * gravityDiagram.py);
+      const Mp = activeConfig.escape.planetMass;
+      const G = 1.0;
+      let vEsc = 0;
+      if (r > 1e-6) {
+        vEsc = Math.sqrt((2 * G * Mp) / r);
+      }
+      statusExtra3.querySelector('.status-value')!.innerHTML = `${vEsc.toFixed(2)}`;
     }
   }
 }

@@ -26,3 +26,20 @@
 
 ### Frame of Reference
 - **Approach**: Option 1 (Origin locked to the Barycenter) was chosen. By shifting the rendering origin to match the common center of mass, we keep the orbital path centered, making binary orbit patterns (symmetric ellipses) clear and clean.
+
+---
+
+## Phase 3 Decisions
+
+**Date:** 2026-06-08
+
+### Escape Velocity Launcher
+- **Scope & Parameters**: All launch parameters will be fully adjustable:
+  - Planet mass
+  - Planet radius
+  - Launch height (altitude from center)
+  - Launch speed (initial velocity)
+  - Launch angle (relative to local vertical/tangent)
+- **Crash Behavior**: If the probe collides with the planet's surface, the simulation will display a non-obstructive message: `"Probe crash landed"` on the screen, and freeze simulation updates until reset.
+- **Approach**: Option A (Numerical Integration). Use numerical integration (Velocity Verlet/RK4) to step the probe trajectory, ensuring real-time response to control changes, gravity crashes, and open-ended trajectories.
+- **Off-Screen Reset**: Auto-reset/recycle the probe launch if it goes too far off-screen (e.g., distance > 25 units) to keep the simulation clean.

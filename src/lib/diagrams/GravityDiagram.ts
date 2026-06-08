@@ -1,4 +1,4 @@
-import type { GravityConfig } from '../types';
+import type { GravityConfig, EscapeVelocityParams } from '../types';
 import { PhysicsCanvas } from '../PhysicsCanvas';
 
 interface SweepSector {
@@ -39,6 +39,16 @@ export class GravityDiagram {
   public body1Trail: { x: number; y: number }[] = [];
   public body2Trail: { x: number; y: number }[] = [];
 
+  // Escape velocity state variables
+  public px: number = 0;
+  public py: number = 0;
+  public pvx: number = 0;
+  public pvy: number = 0;
+  public pax: number = 0;
+  public pay: number = 0;
+  public probeTrail: { x: number; y: number }[] = [];
+  public probeCrashed: boolean = false;
+
   // Kepler sweep sectors
   public sectors: SweepSector[] = [];
   private sweepTimer: number = 0;
@@ -69,7 +79,7 @@ export class GravityDiagram {
     this.sectors = [];
     this.sweepTimer = 0;
 
-    const { mode, kepler, twobody } = this.config;
+    const { mode, kepler, twobody, escape } = this.config;
     if (mode === 'kepler' && kepler) {
       const a = kepler.semiMajorAxis;
       const e = kepler.eccentricity;
@@ -123,6 +133,34 @@ export class GravityDiagram {
 
       this.body1Trail = [];
       this.body2Trail = [];
+    } else if (mode === 'escape' && escape) {
+      this.probeCrashed = false;
+      this.probeTrail = [];
+
+      const r0 = escape.launchAltitude;
+      const v0 = escape.launchVelocity;
+      const thetaRad = (escape.launchAngle * Math.PI) / 180;
+
+      // Position the probe initially along the X-axis: px = r0, py = 0
+      this.px = r0;
+      this.py = 0;
+
+      // Launch angle is relative to radial vector (0 = outward radial, 90 = tangential)
+      this.pvx = v0 * Math.cos(thetaRad);
+      this.pvy = v0 * Math.sin(thetaRad);
+
+      // Initial acceleration
+      const G = 1.0;
+      const Mp = escape.planetMass;
+      const distSqr = this.px * this.px + this.py * this.py;
+      const dist = Math.sqrt(distSqr);
+      if (dist > 1e-6) {
+        this.pax = -(G * Mp * this.px) / (dist * distSqr);
+        this.pay = -(G * Mp * this.py) / (dist * distSqr);
+      } else {
+        this.pax = 0;
+        this.pay = 0;
+      }
     }
   }
 
@@ -147,7 +185,7 @@ export class GravityDiagram {
   public step(dt: number): void {
     if (!this.config) return;
 
-    const { mode, kepler } = this.config;
+    const { mode, kepler, escape } = this.config;
 
     if (mode === 'kepler' && kepler) {
       const a = kepler.semiMajorAxis;
@@ -262,6 +300,89 @@ export class GravityDiagram {
 
       if (this.body1Trail.length > 500) this.body1Trail.shift();
       if (this.body2Trail.length > 500) this.body2Trail.shift();
+    } else if (mode === 'escape' && escape) {
+      if (this.probeCrashed) return;
+
+      const G = 1.0;
+      const Mp = escape.planetMass;
+      const Rp = escape.planetRadius;
+
+      // Integration solver: RK4
+      const getDerivatives = (x: number, y: number, vx: number, vy: number): [number, number, number, number] => {
+        const r2 = x * x + y * y;
+        const r = Math.sqrt(r2);
+        if (r < 1e-6) {
+          return [vx, vy, 0, 0];
+        }
+        const factor = -(G * Mp) / (r2 * r);
+        const ax = factor * x;
+        const ay = factor * y;
+        return [vx, vy, ax, ay];
+      };
+
+      const [dx1, dy1, dvx1, dvy1] = getDerivatives(this.px, this.py, this.pvx, this.pvy);
+
+      const [dx2, dy2, dvx2, dvy2] = getDerivatives(
+        this.px + (dx1 * dt) / 2,
+        this.py + (dy1 * dt) / 2,
+        this.pvx + (dvx1 * dt) / 2,
+        this.pvy + (dvy1 * dt) / 2
+      );
+
+      const [dx3, dy3, dvx3, dvy3] = getDerivatives(
+        this.px + (dx2 * dt) / 2,
+        this.py + (dy2 * dt) / 2,
+        this.pvx + (dvx2 * dt) / 2,
+        this.pvy + (dvy2 * dt) / 2
+      );
+
+      const [dx4, dy4, dvx4, dvy4] = getDerivatives(
+        this.px + dx3 * dt,
+        this.py + dy3 * dt,
+        this.pvx + dvx3 * dt,
+        this.pvy + dvy3 * dt
+      );
+
+      this.px += (dt / 6) * (dx1 + 2 * dx2 + 2 * dx3 + dx4);
+      this.py += (dt / 6) * (dy1 + 2 * dy2 + 2 * dy3 + dy4);
+      this.pvx += (dt / 6) * (dvx1 + 2 * dvx2 + 2 * dvx3 + dvx4);
+      this.pvy += (dt / 6) * (dvy1 + 2 * dvy2 + 2 * dvy3 + dvy4);
+
+      // Recalculate acceleration for state variables pax/pay
+      const [_, __, axNew, ayNew] = getDerivatives(this.px, this.py, this.pvx, this.pvy);
+      this.pax = axNew;
+      this.pay = ayNew;
+
+      this.t += dt;
+
+      // Check for planet surface collision
+      const r = Math.sqrt(this.px * this.px + this.py * this.py);
+      if (r <= Rp) {
+        this.probeCrashed = true;
+        if (r > 1e-6) {
+          this.px = (this.px / r) * Rp;
+          this.py = (this.py / r) * Rp;
+        } else {
+          this.px = Rp;
+          this.py = 0;
+        }
+        this.pvx = 0;
+        this.pvy = 0;
+        this.pax = 0;
+        this.pay = 0;
+      }
+
+      // Check for off-screen bounds (r > 25.0)
+      if (r > 25.0) {
+        this.resetState();
+        return;
+      }
+
+      // Save positions to trail
+      this.probeTrail.push({ x: this.px, y: this.py });
+      if (this.probeTrail.length > 400) {
+        this.probeTrail.shift();
+      }
     }
   }
 
@@ -275,12 +396,176 @@ export class GravityDiagram {
     this.pc.originX = this.pc.canvas.clientWidth / 2 + this.pc.panX;
     this.pc.originY = this.pc.canvas.clientHeight / 2 + this.pc.panY;
 
-    const { mode, kepler } = this.config;
+    const { mode, kepler, escape } = this.config;
 
     if (mode === 'kepler' && kepler) {
       this.drawKepler(kepler);
     } else if (mode === 'twobody') {
       this.drawTwoBody();
+    } else if (mode === 'escape' && escape) {
+      this.drawEscape(escape);
+    }
+  }
+
+  private drawEscape(escape: EscapeVelocityParams): void {
+    const sCenter = this.pc.toScreen(0, 0);
+    const scale = this.pc.scale;
+    const Rp_screen = escape.planetRadius * scale;
+
+    // 1. Draw central crosshair marker representing planet center
+    this.pc.ctx.save();
+    this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)';
+    this.pc.ctx.lineWidth = 1.0;
+    this.pc.ctx.beginPath();
+    this.pc.ctx.moveTo(sCenter.x - 12, sCenter.y);
+    this.pc.ctx.lineTo(sCenter.x + 12, sCenter.y);
+    this.pc.ctx.moveTo(sCenter.x, sCenter.y - 12);
+    this.pc.ctx.lineTo(sCenter.x, sCenter.y + 12);
+    this.pc.ctx.stroke();
+    this.pc.ctx.restore();
+
+    // 2. Draw faded orbital trail lines
+    if (this.probeTrail.length >= 2) {
+      this.pc.ctx.save();
+      this.pc.ctx.lineWidth = 2.0;
+      for (let i = 1; i < this.probeTrail.length; i++) {
+        const ptPrev = this.pc.toScreen(this.probeTrail[i - 1].x, this.probeTrail[i - 1].y);
+        const ptCurr = this.pc.toScreen(this.probeTrail[i].x, this.probeTrail[i].y);
+        const alpha = i / this.probeTrail.length;
+        this.pc.ctx.strokeStyle = this.pc.theme === 'dark'
+          ? `rgba(168, 85, 247, ${alpha * 0.7})`  // Purple fading
+          : `rgba(124, 58, 237, ${alpha * 0.7})`; // Violet fading
+        this.pc.ctx.beginPath();
+        this.pc.ctx.moveTo(ptPrev.x, ptPrev.y);
+        this.pc.ctx.lineTo(ptCurr.x, ptCurr.y);
+        this.pc.ctx.stroke();
+      }
+      this.pc.ctx.restore();
+    }
+
+    // 3. Planet body circle (radial glowing sphere)
+    this.pc.ctx.save();
+    const gradPlanet = this.pc.ctx.createRadialGradient(sCenter.x, sCenter.y, 2, sCenter.x, sCenter.y, Rp_screen * 1.1);
+    gradPlanet.addColorStop(0, '#e0f2fe'); // light sky blue center
+    gradPlanet.addColorStop(0.3, '#38bdf8'); // sky blue mid
+    gradPlanet.addColorStop(0.8, '#0284c7'); // dark sky blue outer
+    gradPlanet.addColorStop(1, 'rgba(3, 105, 161, 0.4)'); // transparent glow
+    this.pc.ctx.fillStyle = gradPlanet;
+    this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? '#fff' : '#000';
+    this.pc.ctx.lineWidth = 1.5;
+    this.pc.ctx.beginPath();
+    this.pc.ctx.arc(sCenter.x, sCenter.y, Rp_screen, 0, 2 * Math.PI);
+    this.pc.ctx.fill();
+    this.pc.ctx.stroke();
+    this.pc.ctx.restore();
+
+    // 4. Draw Probe circle
+    const sProbe = this.pc.toScreen(this.px, this.py);
+    this.pc.ctx.save();
+    this.pc.ctx.fillStyle = '#f3f4f6'; // Silver grey
+    this.pc.ctx.strokeStyle = '#4b5563';
+    this.pc.ctx.lineWidth = 1.5;
+    this.pc.ctx.beginPath();
+    this.pc.ctx.arc(sProbe.x, sProbe.y, 6, 0, 2 * Math.PI);
+    this.pc.ctx.fill();
+    this.pc.ctx.stroke();
+    this.pc.ctx.restore();
+
+    // 5. Draw velocity vector arrow
+    const v = Math.sqrt(this.pvx * this.pvx + this.pvy * this.pvy);
+    if (v > 0.05 && !this.probeCrashed) {
+      const velScale = 0.3;
+      this.pc.drawArrow(
+        this.px, this.py,
+        this.px + this.pvx * velScale, this.py + this.pvy * velScale,
+        '#22d3ee', `v = ${v.toFixed(2)}`, { headSize: 5, labelOffset: 10 }
+      );
+    }
+
+    // 6. Draw trajectory analysis card (Glassmorphic box in top-left)
+    const G = 1.0;
+    const Mp = escape.planetMass;
+    const r = Math.sqrt(this.px * this.px + this.py * this.py);
+    const v2 = this.pvx * this.pvx + this.pvy * this.pvy;
+    const E_specific = v2 / 2 - (G * Mp) / (r > 1e-6 ? r : 1e-6);
+
+    const h = this.px * this.pvy - this.py * this.pvx;
+    const ex = (this.pvy * h) / (G * Mp) - this.px / (r > 1e-6 ? r : 1e-6);
+    const ey = (-this.pvx * h) / (G * Mp) - this.py / (r > 1e-6 ? r : 1e-6);
+    const ecc = Math.sqrt(ex * ex + ey * ey);
+
+    let trajType = 'Elliptic';
+    if (ecc < 0.05) trajType = 'Circular';
+    else if (Math.abs(ecc - 1.0) < 0.02) trajType = 'Parabolic';
+    else if (ecc >= 1.02) trajType = 'Hyperbolic';
+
+    this.pc.ctx.save();
+    const infoX = 20;
+    const infoY = 20;
+    const infoW = 180;
+    const infoH = 85;
+
+    // Glassmorphic box
+    this.pc.ctx.fillStyle = this.pc.theme === 'dark' ? 'rgba(30, 41, 59, 0.75)' : 'rgba(255, 255, 255, 0.85)';
+    this.pc.ctx.strokeStyle = this.pc.theme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)';
+    this.pc.ctx.lineWidth = 1.0;
+    this.pc.ctx.beginPath();
+    if (typeof this.pc.ctx.roundRect === 'function') {
+      this.pc.ctx.roundRect(infoX, infoY, infoW, infoH, 8);
+    } else {
+      this.pc.ctx.rect(infoX, infoY, infoW, infoH);
+    }
+    this.pc.ctx.fill();
+    this.pc.ctx.stroke();
+
+    // Box Title
+    this.pc.ctx.fillStyle = this.pc.theme === 'dark' ? '#f3f4f6' : '#1f2937';
+    this.pc.ctx.font = '600 12px "Outfit", sans-serif';
+    this.pc.ctx.textAlign = 'left';
+    this.pc.ctx.textBaseline = 'top';
+    this.pc.ctx.fillText('Trajectory Analysis', infoX + 12, infoY + 10);
+
+    // Box Values
+    this.pc.ctx.font = '400 11px "Outfit", sans-serif';
+    this.pc.ctx.fillStyle = this.pc.theme === 'dark' ? '#9ca3af' : '#4b5563';
+    this.pc.ctx.fillText(`Specific Energy: ${E_specific.toFixed(3)}`, infoX + 12, infoY + 30);
+    this.pc.ctx.fillText(`Eccentricity (e): ${ecc.toFixed(3)}`, infoX + 12, infoY + 46);
+
+    // Trajectory type tag
+    let badgeColor = '#10b981'; // Green
+    if (trajType === 'Parabolic') badgeColor = '#f59e0b'; // Amber
+    else if (trajType === 'Hyperbolic') badgeColor = '#a855f7'; // Purple
+    this.pc.ctx.fillStyle = badgeColor;
+    this.pc.ctx.font = '600 11px "Outfit", sans-serif';
+    this.pc.ctx.fillText(`Type: ${trajType.toUpperCase()}`, infoX + 12, infoY + 62);
+    this.pc.ctx.restore();
+
+    // 7. Non-obstructive crash landed warning banner
+    if (this.probeCrashed) {
+      const bannerWidth = 200;
+      const bannerHeight = 32;
+      const x = (this.pc.canvas.clientWidth - bannerWidth) / 2;
+      const y = 20;
+
+      this.pc.ctx.save();
+      this.pc.ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+      this.pc.ctx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+      this.pc.ctx.lineWidth = 1.5;
+      this.pc.ctx.beginPath();
+      if (typeof this.pc.ctx.roundRect === 'function') {
+        this.pc.ctx.roundRect(x, y, bannerWidth, bannerHeight, 6);
+      } else {
+        this.pc.ctx.rect(x, y, bannerWidth, bannerHeight);
+      }
+      this.pc.ctx.fill();
+      this.pc.ctx.stroke();
+
+      this.pc.ctx.fillStyle = '#ef4444';
+      this.pc.ctx.font = '600 12px "Outfit", sans-serif';
+      this.pc.ctx.textAlign = 'center';
+      this.pc.ctx.textBaseline = 'middle';
+      this.pc.ctx.fillText('PROBE CRASH LANDED', x + bannerWidth / 2, y + bannerHeight / 2);
+      this.pc.ctx.restore();
     }
   }
 
