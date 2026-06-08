@@ -8,6 +8,7 @@ import { WaveDiagram } from './lib/diagrams/WaveDiagram';
 import { MechanicsDiagram } from './lib/diagrams/MechanicsDiagram';
 import { FluidsDiagram } from './lib/diagrams/FluidsDiagram';
 import { GravityDiagram } from './lib/diagrams/GravityDiagram';
+import { ThermoDiagram } from './lib/diagrams/ThermoDiagram';
 import { GraphModule } from './lib/diagrams/GraphModule';
 import type { GraphMode } from './lib/diagrams/GraphModule';
 
@@ -503,6 +504,39 @@ const PRESETS: Record<string, PhysicsConfig> = {
       launchAltitude: 1.2,
       launchAngle: 90.0
     }
+  },
+  'thermo-kinetic-theory': {
+    type: 'thermo',
+    mode: 'kinetic-theory',
+    temperature: 3.0,
+    particleCount: 100,
+    volume: 3.0,
+    heatInput: 0,
+    showDistribution: true,
+    showEntropy: false,
+    autoCycle: false
+  },
+  'thermo-piston-engine': {
+    type: 'thermo',
+    mode: 'piston-engine',
+    temperature: 3.0,
+    particleCount: 60,
+    volume: 3.0,
+    heatInput: 0,
+    showDistribution: false,
+    showEntropy: false,
+    autoCycle: false
+  },
+  'thermo-diffusion': {
+    type: 'thermo',
+    mode: 'diffusion',
+    temperature: 3.0,
+    particleCount: 120,
+    volume: 3.0,
+    heatInput: 0,
+    showDistribution: false,
+    showEntropy: true,
+    autoCycle: false
   }
 };
 
@@ -528,6 +562,7 @@ let waveDiagram: WaveDiagram;
 let mechanicsDiagram: MechanicsDiagram;
 let fluidsDiagram: FluidsDiagram;
 let gravityDiagram: GravityDiagram;
+let thermoDiagram: ThermoDiagram;
 
 // DOM Elements
 const selectPreset = document.getElementById('select-preset') as HTMLSelectElement;
@@ -566,6 +601,7 @@ function init() {
   mechanicsDiagram = new MechanicsDiagram(pc);
   fluidsDiagram = new FluidsDiagram(pc);
   gravityDiagram = new GravityDiagram(pc);
+  thermoDiagram = new ThermoDiagram(pc);
 
   // Load initial preset
   loadPreset('shm-horizontal');
@@ -1111,6 +1147,17 @@ function applyConfig(config: PhysicsConfig) {
     selectGraphMode.classList.add('hidden');
     graphModule.mode = 'energy';
     graphTitle.innerText = 'Real-Time Graph: ENERGY CONSERVATION';
+  } else if (config.type === 'thermo') {
+    thermoDiagram.setConfig(config);
+    graphCard.classList.remove('hidden');
+    selectGraphMode.classList.add('hidden');
+    if (config.mode === 'kinetic-theory') {
+      graphTitle.innerText = 'Real-Time Graph: PARTICLE SPEED DISTRIBUTION (RAYLEIGH)';
+    } else if (config.mode === 'piston-engine') {
+      graphTitle.innerText = 'Real-Time Graph: PRESSURE-VOLUME (P-V) DIAGRAM';
+    } else if (config.mode === 'diffusion') {
+      graphTitle.innerText = 'Real-Time Graph: SHANNON MIXING ENTROPY';
+    }
   }
 
   // Generate controls UI
@@ -1134,6 +1181,8 @@ function updateTitles(config: PhysicsConfig) {
     canvasTitle.innerText = `Fluid Mechanics: ${config.mode.toUpperCase()}`;
   } else if (config.type === 'gravity') {
     canvasTitle.innerText = `Gravitation & Orbital Mechanics: ${config.mode.toUpperCase()}`;
+  } else if (config.type === 'thermo') {
+    canvasTitle.innerText = `Thermodynamics & Kinetic Theory: ${config.mode.replace(/-/g, ' ').toUpperCase()}`;
   }
 }
 
@@ -1500,6 +1549,8 @@ function resetSimulation() {
     fluidsDiagram.resetState();
   } else if (activeConfig.type === 'gravity') {
     gravityDiagram.resetState();
+  } else if (activeConfig.type === 'thermo') {
+    thermoDiagram.resetState();
   }
   drawActiveSimulation();
 }
@@ -1594,6 +1645,8 @@ function stepSimulation(dt: number) {
     fluidsDiagram.step(dt);
   } else if (activeConfig.type === 'gravity') {
     gravityDiagram.step(dt);
+  } else if (activeConfig.type === 'thermo') {
+    thermoDiagram.step(dt);
   }
 }
 
@@ -1616,6 +1669,9 @@ function drawActiveSimulation() {
   } else if (activeConfig.type === 'gravity') {
     gravityDiagram.draw();
     graphModule.draw(gravityDiagram.history);
+  } else if (activeConfig.type === 'thermo') {
+    thermoDiagram.draw();
+    graphModule.drawThermo(thermoDiagram);
   }
 }
 
@@ -1870,6 +1926,20 @@ function updateStatusBar() {
       }
       statusExtra3.querySelector('.status-value')!.innerHTML = `${vEsc.toFixed(2)}`;
     }
+  } else if (activeConfig.type === 'thermo') {
+    statusTime.innerText = `${thermoDiagram.t.toFixed(2)}s`;
+    
+    statusExtra1.classList.remove('hidden');
+    statusExtra1.querySelector('.status-label')!.innerHTML = 'Temperature (T):';
+    statusExtra1.querySelector('.status-value')!.innerHTML = `${thermoDiagram.temperature.toFixed(2)}`;
+
+    statusExtra2.classList.remove('hidden');
+    statusExtra2.querySelector('.status-label')!.innerHTML = 'Pressure (P):';
+    statusExtra2.querySelector('.status-value')!.innerHTML = `${thermoDiagram.pressure.toFixed(2)}`;
+
+    statusExtra3.classList.remove('hidden');
+    statusExtra3.querySelector('.status-label')!.innerHTML = 'Volume (V):';
+    statusExtra3.querySelector('.status-value')!.innerHTML = `${thermoDiagram.volume.toFixed(2)}`;
   }
 }
 

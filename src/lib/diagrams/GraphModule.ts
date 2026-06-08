@@ -637,4 +637,6 @@ export class GraphModule {
 
     this.ctx.restore();
   }
+
+  public drawThermo(_diagram: any): void {}
 }
