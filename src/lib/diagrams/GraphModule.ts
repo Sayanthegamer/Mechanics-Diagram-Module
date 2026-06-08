@@ -467,7 +467,7 @@ export class GraphModule {
   }
 
   // Draw Fluids real-time graph (blockY, blockVy, pressureGauge in kPa vs time)
-  public drawFluids(history: FluidsState[]): void {
+  public drawFluids(history: FluidsState[], mode: 'buoyancy' | 'pascal' | 'bernoulli' | 'viscosity' = 'buoyancy'): void {
     this.clear();
     if (history.length < 2) return;
 
@@ -482,15 +482,34 @@ export class GraphModule {
     const graphWidth = width - padding.left - padding.right;
     const graphHeight = height - padding.top - padding.bottom;
 
-    // Determine scale bounds dynamically
+    // Determine scale bounds dynamically based on active mode
     let yMin = Infinity;
     let yMax = -Infinity;
 
-    history.forEach((d) => {
-      const pKpa = d.pressureGauge / 1000 - 101.3; // Gauge or relative pressure in kPa to scale nicely
-      yMin = Math.min(yMin, d.blockY, d.blockVy, pKpa);
-      yMax = Math.max(yMax, d.blockY, d.blockVy, pKpa);
-    });
+    if (mode === 'buoyancy') {
+      history.forEach((d) => {
+        const pKpa = d.pressureGauge / 1000 - 101.3;
+        yMin = Math.min(yMin, d.blockY, d.blockVy, pKpa);
+        yMax = Math.max(yMax, d.blockY, d.blockVy, pKpa);
+      });
+    } else if (mode === 'pascal') {
+      history.forEach((d) => {
+        const pKpa = d.pressureGauge / 1000 - 101.3;
+        yMin = Math.min(yMin, d.piston1Y ?? 0, d.piston2Y ?? 0, pKpa);
+        yMax = Math.max(yMax, d.piston1Y ?? 0, d.piston2Y ?? 0, pKpa);
+      });
+    } else if (mode === 'bernoulli') {
+      history.forEach((d) => {
+        yMin = Math.min(yMin, d.v1 ?? 0, d.v2 ?? 0, d.deltaP ?? 0);
+        yMax = Math.max(yMax, d.v1 ?? 0, d.v2 ?? 0, d.deltaP ?? 0);
+      });
+    } else if (mode === 'viscosity') {
+      history.forEach((d) => {
+        const speed = Math.abs(d.sphereVy ?? 0);
+        yMin = Math.min(yMin, d.sphereY ?? 0, speed, d.terminalVy ?? 0);
+        yMax = Math.max(yMax, d.sphereY ?? 0, speed, d.terminalVy ?? 0);
+      });
+    }
 
     const yRange = yMax - yMin;
     if (yRange < 0.01) {
@@ -573,7 +592,7 @@ export class GraphModule {
       this.ctx.stroke();
 
       // Legend
-      const legendX = padding.left + legendIdx * 110;
+      const legendX = padding.left + legendIdx * 125;
       const legendY = padding.top - 12;
 
       this.ctx.fillStyle = color;
@@ -582,16 +601,30 @@ export class GraphModule {
       this.ctx.fill();
 
       this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
-      this.ctx.font = 'bold 10px Outfit, sans-serif';
+      this.ctx.font = 'bold 9px Outfit, sans-serif';
       this.ctx.textAlign = 'left';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(label, legendX + 8, legendY);
       this.ctx.restore();
     };
 
-    plotCurve((d) => d.blockY, '#f59e0b', 'Block Y (m)', 0);
-    plotCurve((d) => d.blockVy, '#22d3ee', 'Velocity Y (m/s)', 1);
-    plotCurve((d) => d.pressureGauge / 1000 - 101.3, '#8b5cf6', 'Gauge P (kPa)', 2);
+    if (mode === 'buoyancy') {
+      plotCurve((d) => d.blockY, '#f59e0b', 'Block Y (m)', 0);
+      plotCurve((d) => d.blockVy, '#22d3ee', 'Velocity Y (m/s)', 1);
+      plotCurve((d) => d.pressureGauge / 1000 - 101.3, '#8b5cf6', 'Gauge P (kPa)', 2);
+    } else if (mode === 'pascal') {
+      plotCurve((d) => d.piston1Y ?? 0, '#f59e0b', 'Piston 1 Y (m)', 0);
+      plotCurve((d) => d.piston2Y ?? 0, '#22d3ee', 'Piston 2 Y (m)', 1);
+      plotCurve((d) => d.pressureGauge / 1000 - 101.3, '#8b5cf6', 'Fluid P (kPa)', 2);
+    } else if (mode === 'bernoulli') {
+      plotCurve((d) => d.v1 ?? 0, '#f59e0b', 'Inlet Speed v1 (m/s)', 0);
+      plotCurve((d) => d.v2 ?? 0, '#22d3ee', 'Throat Speed v2 (m/s)', 1);
+      plotCurve((d) => d.deltaP ?? 0, '#8b5cf6', 'Press Drop ΔP (kPa)', 2);
+    } else if (mode === 'viscosity') {
+      plotCurve((d) => d.sphereY ?? 0, '#f59e0b', 'Sphere Pos Y (m)', 0);
+      plotCurve((d) => Math.abs(d.sphereVy ?? 0), '#22d3ee', 'Sphere Speed (m/s)', 1);
+      plotCurve((d) => d.terminalVy ?? 0, '#8b5cf6', 'Terminal vt (m/s)', 2);
+    }
 
     this.ctx.restore();
   }
