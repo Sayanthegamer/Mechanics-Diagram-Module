@@ -38,6 +38,18 @@ export class ThermoDiagram {
 
   private readonly gamma: number = 1.67;
 
+  // Carnot cycle state
+  public autoCycle: boolean = false;
+  public cycleStage: 0 | 1 | 2 | 3 = 0;
+  public stageTimer: number = 0;
+  public readonly stageDuration: number = 3.0;
+
+  // Carnot cycle limits
+  public readonly tHot: number = 6.0;
+  public readonly tCold: number = 3.0;
+  public readonly vA: number = 1.1;
+  public readonly vB: number = 1.6;
+
   // Capped history array for graphing
   public history: { t: number; kineticEnergy: number; potentialEnergy: number; totalEnergy: number }[] = [];
 
@@ -70,6 +82,10 @@ export class ThermoDiagram {
     this.yBarrier = -4.0;
     this.activeProcess = 'none';
     this.heatTransfer = 'none';
+
+    this.autoCycle = this.config.autoCycle || false;
+    this.cycleStage = 0;
+    this.stageTimer = 0;
 
     this.volume = this.config.volume;
     this.temperature = this.config.temperature;
@@ -158,67 +174,126 @@ export class ThermoDiagram {
 
     this.t += dt;
 
-    // 1. Solve thermodynamic transition formulas and update volume/temperature
-    let targetVolume = this.config.volume;
-    if (this.activeProcess === 'isochoric') {
-      targetVolume = this.v0;
+    // Sync autoCycle from config
+    const wasAuto = this.autoCycle;
+    this.autoCycle = this.config.autoCycle || false;
+    if (this.autoCycle && !wasAuto) {
+      this.cycleStage = 0;
+      this.stageTimer = 0;
+      this.captureReferenceState();
     }
-
-    // Smoothly transition volume towards target
-    this.volume += (targetVolume - this.volume) * (1 - Math.exp(-10 * dt));
-    // Keep volume in bounds
-    this.volume = Math.max(1.0, Math.min(5.0, this.volume));
 
     let targetT = this.temperature;
 
-    if (this.activeProcess === 'isothermal') {
-      targetT = this.t0;
-      this.pressure = this.p0 * (this.v0 / this.volume);
-    } else if (this.activeProcess === 'isobaric') {
-      this.pressure = this.p0;
-      targetT = this.t0 * (this.volume / this.v0);
-    } else if (this.activeProcess === 'adiabatic') {
-      this.pressure = this.p0 * Math.pow(this.v0 / this.volume, this.gamma);
-      targetT = this.t0 * Math.pow(this.v0 / this.volume, this.gamma - 1);
-    } else if (this.activeProcess === 'isochoric') {
-      // In Isochoric, volume remains at v0
-      this.volume = this.v0;
-      if (this.heatTransfer === 'heating') {
-        targetT = this.temperature + 1.0 * dt;
-      } else if (this.heatTransfer === 'cooling') {
-        targetT = this.temperature - 1.0 * dt;
-      } else {
-        targetT = this.t0;
+    if (this.autoCycle) {
+      // Carnot Cycle FSM
+      this.stageTimer += dt;
+      if (this.stageTimer >= this.stageDuration) {
+        this.stageTimer = 0;
+        this.cycleStage = ((this.cycleStage + 1) % 4) as 0 | 1 | 2 | 3;
       }
-      targetT = Math.max(0.5, Math.min(15.0, targetT));
-      this.pressure = this.p0 * (targetT / this.t0);
-    } else {
-      // activeProcess === 'none'
-      targetT = this.config.temperature;
-    }
 
-    // Set heatTransfer automatically if activeProcess === 'none'
-    if (this.activeProcess === 'none') {
-      const tempDiff = this.config.temperature - this.temperature;
-      if (tempDiff > 0.05) {
+      const u = this.stageTimer / this.stageDuration;
+      
+      // Calculate Carnot volumes dynamically
+      const vC = this.vB * Math.pow(this.tHot / this.tCold, 1 / (this.gamma - 1));
+      const vD = this.vA * Math.pow(this.tHot / this.tCold, 1 / (this.gamma - 1));
+
+      // N particles for P = N * T / V ideal curve calculation
+      const N = this.particles.length > 0 ? this.particles.length : this.config.particleCount;
+
+      if (this.cycleStage === 0) {
+        // Stage 0: Isothermal Expansion (A -> B)
+        this.activeProcess = 'isothermal';
         this.heatTransfer = 'heating';
-      } else if (tempDiff < -0.05) {
-        this.heatTransfer = 'cooling';
-      } else {
+        this.volume = this.vA + u * (this.vB - this.vA);
+        targetT = this.tHot;
+        this.pressure = (N * targetT) / this.volume;
+      } else if (this.cycleStage === 1) {
+        // Stage 1: Adiabatic Expansion (B -> C)
+        this.activeProcess = 'adiabatic';
         this.heatTransfer = 'none';
+        this.volume = this.vB + u * (vC - this.vB);
+        targetT = this.tHot * Math.pow(this.vB / this.volume, this.gamma - 1);
+        this.pressure = ((N * this.tHot) / this.vB) * Math.pow(this.vB / this.volume, this.gamma);
+      } else if (this.cycleStage === 2) {
+        // Stage 2: Isothermal Compression (C -> D)
+        this.activeProcess = 'isothermal';
+        this.heatTransfer = 'cooling';
+        this.volume = vC - u * (vC - vD);
+        targetT = this.tCold;
+        this.pressure = (N * targetT) / this.volume;
+      } else if (this.cycleStage === 3) {
+        // Stage 3: Adiabatic Compression (D -> A)
+        this.activeProcess = 'adiabatic';
+        this.heatTransfer = 'none';
+        this.volume = vD - u * (vD - this.vA);
+        targetT = this.tCold * Math.pow(vD / this.volume, this.gamma - 1);
+        this.pressure = ((N * this.tCold) / vD) * Math.pow(vD / this.volume, this.gamma);
       }
     } else {
-      // For process modes, set heatTransfer based on volume changes relative to v0:
-      if (this.activeProcess === 'isothermal' || this.activeProcess === 'isobaric') {
-        if (this.volume > this.v0 + 0.02) {
+      // Normal state update (non-auto cycle)
+      let targetVolume = this.config.volume;
+      if (this.activeProcess === 'isochoric') {
+        targetVolume = this.v0;
+      }
+
+      // Smoothly transition volume towards target
+      this.volume += (targetVolume - this.volume) * (1 - Math.exp(-10 * dt));
+      // Keep volume in bounds
+      this.volume = Math.max(1.0, Math.min(5.0, this.volume));
+
+      targetT = this.temperature;
+
+      if (this.activeProcess === 'isothermal') {
+        targetT = this.t0;
+        this.pressure = this.p0 * (this.v0 / this.volume);
+      } else if (this.activeProcess === 'isobaric') {
+        this.pressure = this.p0;
+        targetT = this.t0 * (this.volume / this.v0);
+      } else if (this.activeProcess === 'adiabatic') {
+        this.pressure = this.p0 * Math.pow(this.v0 / this.volume, this.gamma);
+        targetT = this.t0 * Math.pow(this.v0 / this.volume, this.gamma - 1);
+      } else if (this.activeProcess === 'isochoric') {
+        // In Isochoric, volume remains at v0
+        this.volume = this.v0;
+        if (this.heatTransfer === 'heating') {
+          targetT = this.temperature + 1.0 * dt;
+        } else if (this.heatTransfer === 'cooling') {
+          targetT = this.temperature - 1.0 * dt;
+        } else {
+          targetT = this.t0;
+        }
+        targetT = Math.max(0.5, Math.min(15.0, targetT));
+        this.pressure = this.p0 * (targetT / this.t0);
+      } else {
+        // activeProcess === 'none'
+        targetT = this.config.temperature;
+      }
+
+      // Set heatTransfer automatically if activeProcess === 'none'
+      if (this.activeProcess === 'none') {
+        const tempDiff = this.config.temperature - this.temperature;
+        if (tempDiff > 0.05) {
           this.heatTransfer = 'heating';
-        } else if (this.volume < this.v0 - 0.02) {
+        } else if (tempDiff < -0.05) {
           this.heatTransfer = 'cooling';
         } else {
           this.heatTransfer = 'none';
         }
-      } else if (this.activeProcess === 'adiabatic') {
-        this.heatTransfer = 'none';
+      } else {
+        // For process modes, set heatTransfer based on volume changes relative to v0:
+        if (this.activeProcess === 'isothermal' || this.activeProcess === 'isobaric') {
+          if (this.volume > this.v0 + 0.02) {
+            this.heatTransfer = 'heating';
+          } else if (this.volume < this.v0 - 0.02) {
+            this.heatTransfer = 'cooling';
+          } else {
+            this.heatTransfer = 'none';
+          }
+        } else if (this.activeProcess === 'adiabatic') {
+          this.heatTransfer = 'none';
+        }
       }
     }
 
