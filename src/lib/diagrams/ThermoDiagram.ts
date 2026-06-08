@@ -50,6 +50,10 @@ export class ThermoDiagram {
   public readonly vA: number = 1.1;
   public readonly vB: number = 1.6;
 
+  // Entropy state
+  public entropy: number = 0;
+  public entropyHistory: { t: number; entropy: number }[] = [];
+
   // Capped history array for graphing
   public history: { t: number; kineticEnergy: number; potentialEnergy: number; totalEnergy: number }[] = [];
 
@@ -86,6 +90,9 @@ export class ThermoDiagram {
     this.autoCycle = this.config.autoCycle || false;
     this.cycleStage = 0;
     this.stageTimer = 0;
+
+    this.entropy = 0;
+    this.entropyHistory = [];
 
     this.volume = this.config.volume;
     this.temperature = this.config.temperature;
@@ -448,6 +455,65 @@ export class ThermoDiagram {
 
     if (this.history.length > 200) {
       this.history.shift();
+    }
+
+    // 5. Calculate Shannon entropy of mixing in diffusion mode
+    if (this.config.mode === 'diffusion') {
+      const gridM = 4; // 4x4 grid
+      const cellCounts: { countA: number; countB: number }[][] = Array.from({ length: gridM }, () =>
+        Array.from({ length: gridM }, () => ({ countA: 0, countB: 0 }))
+      );
+
+      const xRight = this.xLeft + this.volume * 2.4;
+      const width = xRight - this.xLeft;
+      const height = this.H;
+
+      for (const p of this.particles) {
+        // Find grid cell coordinates
+        const cellX = Math.max(0, Math.min(gridM - 1, Math.floor(((p.x - this.xLeft) / width) * gridM)));
+        const cellY = Math.max(0, Math.min(gridM - 1, Math.floor(((p.y - this.yBottom) / height) * gridM)));
+        if (p.species === 'A') {
+          cellCounts[cellX][cellY].countA++;
+        } else {
+          cellCounts[cellX][cellY].countB++;
+        }
+      }
+
+      let entropySum = 0;
+      for (let i = 0; i < gridM; i++) {
+        for (let j = 0; j < gridM; j++) {
+          const cA = cellCounts[i][j].countA;
+          const cB = cellCounts[i][j].countB;
+          const total = cA + cB;
+          if (total > 0) {
+            const pA = cA / total;
+            const pB = cB / total;
+            const termA = pA > 0 ? -pA * Math.log(pA) : 0;
+            const termB = pB > 0 ? -pB * Math.log(pB) : 0;
+            entropySum += termA + termB;
+          }
+        }
+      }
+
+      // Average entropy over all grid cells
+      this.entropy = entropySum / (gridM * gridM);
+
+      // Record entropy history if the barrier is open
+      if (!this.barrierClosed) {
+        this.entropyHistory.push({
+          t: this.t,
+          entropy: this.entropy
+        });
+
+        if (this.entropyHistory.length > 200) {
+          this.entropyHistory.shift();
+        }
+      } else {
+        this.entropyHistory = [];
+      }
+    } else {
+      this.entropy = 0;
+      this.entropyHistory = [];
     }
   }
 
