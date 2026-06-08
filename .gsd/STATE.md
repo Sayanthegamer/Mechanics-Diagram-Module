@@ -1,14 +1,12 @@
 # GSD Project State
 
 ## Current Position
-- **Milestone**: v2.0 (Fluid Dynamics) (Completed)
-- **Status**: ✅ Milestone Complete and Verified
+- **Sprint**: rework-vertical-loop
+- **Status**: Sprint in progress
+- **Milestone**: (paused)
 
 ## Milestone Summary
-Milestone v2.0 introduces interactive Fluid Dynamics and Hydrostatics simulations into the coordinate canvas system.
+Milestone v2.0 is complete. Sprint "rework-vertical-loop" is active.
 
 ## Last Session Summary
-Milestone v2.0 has been fully completed, verified, and archived. Viewport panning, dynamic graphing for buoyancy, Pascal, Bernoulli, and viscosity are fully operational.
-
-## Next Steps
-1. Run /new-milestone to configure the next milestone.
+Created sprint to rework the vertical circular loop motion simulation in `MechanicsDiagram.ts` into a dynamic physical simulation (handling slack strings, gravity, and projectile fallbacks).
