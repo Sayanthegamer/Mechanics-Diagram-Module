@@ -39,5 +39,17 @@
 ### Approach
 - **PV Diagram Tracing**: Render a persistent closed-loop trace of the Carnot cycle on the graph canvas, showing a dynamic state pointer moving along the paths in real-time.
 
+## Phase 4 Decisions
+
+**Date:** 2026-06-08
+
+### Scope
+- **Setup**: Split chamber with a sliding central barrier. Species A (Heavy/Red) on the left, Species B (Light/Blue) on the right.
+- **UI Trigger**: Interactive click-to-remove barrier directly on the canvas, plus sidebar button control.
+
+### Approach
+- **Entropy Calculation**: Grid-based Shannon entropy of mixing ($4 \times 4$ spatial cells) to produce a smooth, physically accurate rising entropy curve during diffusion.
+
+
 
 
