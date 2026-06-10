@@ -114,7 +114,7 @@
 | 3. SHM | v2.0 | 2/2 | Complete | 2026-05-25 |
 | 4. Waves | v3.0 | 2/2 | Complete | 2026-06-01 |
 | 5. Mechanics/Thermo | v4.0 | 5/5 | Complete | 2026-06-08 |
-| 6. Electrostatics | v5.0 | 2/2 | Complete   | 2026-06-10 |
+| 6. Electrostatics | v5.0 | 2/2 | Complete    | 2026-06-10 |
 | 7. Lorentz Force | v5.0 | 0/0 | Not started | - |
 | 8. Circuit Engine | v5.0 | 0/0 | Not started | - |
 | 9. Schematic UI | v5.0 | 0/0 | Not started | - |
