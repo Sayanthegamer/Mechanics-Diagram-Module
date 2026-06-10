@@ -29,8 +29,83 @@ export class EmDiagram {
     this.particles = [];
   }
 
-  public step(_dt: number): void {
-    // Phase 1 has static charges. Dynamics (Lorentz force moving test charges) will be added in Phase 2.
+  private getDerivatives(
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    q: number,
+    m: number
+  ): [number, number, number, number] {
+    const E = this.getFieldAt(x, y);
+    const B = this.config ? this.config.bField : 0;
+    const ax = (q / m) * (E.ex + vy * B);
+    const ay = (q / m) * (E.ey - vx * B);
+    return [vx, vy, ax, ay];
+  }
+
+  public step(dt: number): void {
+    if (!this.config) return;
+
+    const remainingParticles: EmParticle[] = [];
+
+    for (const p of this.particles) {
+      // Runge-Kutta 4th Order (RK4) integration step
+      const [dx1, dy1, dvx1, dvy1] = this.getDerivatives(p.x, p.y, p.vx, p.vy, p.q, p.m);
+
+      const x2 = p.x + (dx1 * dt) / 2;
+      const y2 = p.y + (dy1 * dt) / 2;
+      const vx2 = p.vx + (dvx1 * dt) / 2;
+      const vy2 = p.vy + (dvy1 * dt) / 2;
+      const [dx2, dy2, dvx2, dvy2] = this.getDerivatives(x2, y2, vx2, vy2, p.q, p.m);
+
+      const x3 = p.x + (dx2 * dt) / 2;
+      const y3 = p.y + (dy2 * dt) / 2;
+      const vx3 = p.vx + (dvx2 * dt) / 2;
+      const vy3 = p.vy + (dvy2 * dt) / 2;
+      const [dx3, dy3, dvx3, dvy3] = this.getDerivatives(x3, y3, vx3, vy3, p.q, p.m);
+
+      const x4 = p.x + dx3 * dt;
+      const y4 = p.y + dy3 * dt;
+      const vx4 = p.vx + dvx3 * dt;
+      const vy4 = p.vy + dvy3 * dt;
+      const [dx4, dy4, dvx4, dvy4] = this.getDerivatives(x4, y4, vx4, vy4, p.q, p.m);
+
+      p.x += (dt / 6) * (dx1 + 2 * dx2 + 2 * dx3 + dx4);
+      p.y += (dt / 6) * (dy1 + 2 * dy2 + 2 * dy3 + dy4);
+      p.vx += (dt / 6) * (dvx1 + 2 * dvx2 + 2 * dvx3 + dvx4);
+      p.vy += (dt / 6) * (dvy1 + 2 * dvy2 + 2 * dvy3 + dvy4);
+
+      // Append new position to trail and limit history size
+      p.trail.push({ x: p.x, y: p.y });
+      if (p.trail.length > 500) {
+        p.trail.shift();
+      }
+
+      // Contact absorption check with static charges (14px collision radius in screen space)
+      const collisionRadius = 14 / this.pc.scale;
+      let absorbed = false;
+      for (const c of this.charges) {
+        const dx = p.x - c.x;
+        const dy = p.y - c.y;
+        if (dx * dx + dy * dy < collisionRadius * collisionRadius) {
+          absorbed = true;
+          break;
+        }
+      }
+
+      // Threat mitigation: automatic annihilation if particle travels too far off-screen
+      const distSq = p.x * p.x + p.y * p.y;
+      if (distSq > 900) { // distance from origin > 30 => r^2 > 900
+        absorbed = true;
+      }
+
+      if (!absorbed) {
+        remainingParticles.push(p);
+      }
+    }
+
+    this.particles = remainingParticles;
   }
 
   /**
