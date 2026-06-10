@@ -63,18 +63,58 @@ export class EmDiagram {
     return { ex, ey };
   }
 
-  public draw(canvas: PhysicsCanvas): void {
-    // Placeholder to be fully implemented in Plan 1.2
+  public draw(canvas: PhysicsCanvas, selectedChargeId: string | null = null): void {
     const ctx = canvas.ctx;
+    canvas.clear();
+    canvas.resetOrigin();
+    canvas.drawGrid(1);
+
     ctx.save();
     
-    // Draw charges as simple circles for now
+    // Draw charges
     for (const c of this.charges) {
       const screenPos = canvas.toScreen(c.x, c.y);
+      const isSelected = c.id === selectedChargeId;
+
+      // Draw dashed selection outline if selected
+      if (isSelected) {
+        ctx.save();
+        ctx.strokeStyle = '#6366f1'; // Accent color
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#6366f1';
+        ctx.beginPath();
+        ctx.arc(screenPos.x, screenPos.y, 20, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Draw outer glowing circle
+      ctx.save();
+      const color = c.q >= 0 ? '#ef4444' : '#3b82f6';
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = color;
+
+      // Draw charge circle
       ctx.beginPath();
-      ctx.arc(screenPos.x, screenPos.y, 10, 0, 2 * Math.PI);
-      ctx.fillStyle = c.q > 0 ? '#ef4444' : '#3b82f6';
+      ctx.arc(screenPos.x, screenPos.y, 14, 0, 2 * Math.PI);
       ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw sign / label (+ or -)
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label = c.q >= 0 ? '+' : '-';
+      ctx.fillText(label, screenPos.x, screenPos.y);
+      ctx.restore();
     }
     
     ctx.restore();

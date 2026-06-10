@@ -9,6 +9,7 @@ import { MechanicsDiagram } from './lib/diagrams/MechanicsDiagram';
 import { FluidsDiagram } from './lib/diagrams/FluidsDiagram';
 import { GravityDiagram } from './lib/diagrams/GravityDiagram';
 import { ThermoDiagram } from './lib/diagrams/ThermoDiagram';
+import { EmDiagram } from './lib/diagrams/EmDiagram';
 import { GraphModule } from './lib/diagrams/GraphModule';
 import type { GraphMode } from './lib/diagrams/GraphModule';
 
@@ -585,6 +586,8 @@ let mechanicsDiagram: MechanicsDiagram;
 let fluidsDiagram: FluidsDiagram;
 let gravityDiagram: GravityDiagram;
 let thermoDiagram: ThermoDiagram;
+let emDiagram: EmDiagram;
+let selectedChargeId: string | null = null;
 
 // DOM Elements
 const selectPreset = document.getElementById('select-preset') as HTMLSelectElement;
@@ -624,6 +627,7 @@ function init() {
   fluidsDiagram = new FluidsDiagram(pc);
   gravityDiagram = new GravityDiagram(pc);
   thermoDiagram = new ThermoDiagram(pc);
+  emDiagram = new EmDiagram(pc);
 
   // Load initial preset
   loadPreset('shm-horizontal');
@@ -856,6 +860,27 @@ function handleInteractionStart(clientX: number, clientY: number) {
       isPlaying = false;
       return;
     }
+  } else if (activeConfig.type === 'em') {
+    const { charges } = activeConfig;
+    let clickedChargeId: string | null = null;
+    for (const c of charges) {
+      const dist = Math.sqrt((p.x - c.x) * (p.x - c.x) + (p.y - c.y) * (p.y - c.y));
+      if (dist < 0.4) {
+        clickedChargeId = c.id;
+        break;
+      }
+    }
+    if (clickedChargeId) {
+      isDragging = true;
+      dragTarget = clickedChargeId;
+      selectedChargeId = clickedChargeId;
+      isPlaying = false;
+      applyConfig(activeConfig);
+      return;
+    } else {
+      selectedChargeId = null;
+      applyConfig(activeConfig);
+    }
   }
 
   // Viewport panning fallback if no interactive element is grabbed
@@ -987,6 +1012,14 @@ function handleInteractionMove(clientX: number, clientY: number) {
       activeConfig.pascal.displacement1 = fluidsDiagram.pistonOffset;
     }
     applyConfig(activeConfig);
+  } else if (activeConfig.type === 'em') {
+    const { charges } = activeConfig;
+    const target = charges.find(c => c.id === dragTarget);
+    if (target) {
+      target.x = Math.max(-8, Math.min(8, p.x));
+      target.y = Math.max(-6, Math.min(6, p.y));
+      applyConfig(activeConfig);
+    }
   }
 } else {
     let hover = false;
@@ -1073,6 +1106,15 @@ function handleInteractionMove(clientX: number, clientY: number) {
       if (dist < 0.4) hover = true;
     } else if (activeConfig.type === 'fluids') {
       if (fluidsDiagram.getDragTarget(p)) hover = true;
+    } else if (activeConfig.type === 'em') {
+      const { charges } = activeConfig;
+      for (const c of charges) {
+        const dist = Math.sqrt((p.x - c.x) * (p.x - c.x) + (p.y - c.y) * (p.y - c.y));
+        if (dist < 0.4) {
+          hover = true;
+          break;
+        }
+      }
     }
     pc.canvas.style.cursor = hover ? 'grab' : 'default';
   }
@@ -1184,6 +1226,10 @@ function applyConfig(config: PhysicsConfig) {
       selectGraphMode.classList.add('hidden');
       graphTitle.innerText = 'Real-Time Graph: SHANNON MIXING ENTROPY';
     }
+  } else if (config.type === 'em') {
+    emDiagram.setConfig(config);
+    graphCard.classList.add('hidden');
+    selectGraphMode.classList.add('hidden');
   }
 
   // Generate controls UI
@@ -1212,6 +1258,8 @@ function updateTitles(config: PhysicsConfig) {
     if (config.mode === 'piston-engine') {
       graphTitle.innerText = `Real-Time Graph: ${graphModule.mode === 'pv-diagram' ? 'PRESSURE-VOLUME (P-V) DIAGRAM' : 'TEMPERATURE-ENTROPY (T-S) DIAGRAM'}`;
     }
+  } else if (config.type === 'em') {
+    canvasTitle.innerText = 'Electrostatics Sandbox: POINT CHARGES';
   }
 }
 
@@ -1599,6 +1647,106 @@ function renderSliders(config: PhysicsConfig) {
         thermoDiagram.setConfig(config);
       });
     }
+  } else if (config.type === 'em') {
+    // 1. Add Positive / Negative Buttons
+    const btnContainer = document.createElement('div');
+    btnContainer.style.display = 'flex';
+    btnContainer.style.gap = '8px';
+    btnContainer.style.marginBottom = '16px';
+
+    const addPosBtn = document.createElement('button');
+    addPosBtn.className = 'btn btn-primary';
+    addPosBtn.style.flex = '1';
+    addPosBtn.innerText = 'Add Positive (+q)';
+    addPosBtn.addEventListener('click', () => {
+      const newId = 'q_' + Date.now();
+      config.charges.push({ id: newId, x: 0, y: 0, q: 2.0 });
+      selectedChargeId = newId;
+      applyConfig(config);
+    });
+
+    const addNegBtn = document.createElement('button');
+    addNegBtn.className = 'btn';
+    addNegBtn.style.flex = '1';
+    addNegBtn.innerText = 'Add Negative (-q)';
+    addNegBtn.addEventListener('click', () => {
+      const newId = 'q_' + Date.now();
+      config.charges.push({ id: newId, x: 0, y: 0, q: -2.0 });
+      selectedChargeId = newId;
+      applyConfig(config);
+    });
+
+    btnContainer.appendChild(addPosBtn);
+    btnContainer.appendChild(addNegBtn);
+    dynamicSliders.appendChild(btnContainer);
+
+    // 2. Empty state if no charges
+    if (config.charges.length === 0) {
+      const emptyState = document.createElement('div');
+      emptyState.style.textAlign = 'center';
+      emptyState.style.padding = '16px';
+      emptyState.style.border = '1px dashed #3f3f46';
+      emptyState.style.borderRadius = '6px';
+      emptyState.style.marginTop = '16px';
+
+      const heading = document.createElement('h4');
+      heading.innerText = 'Sandbox is Empty';
+      heading.style.margin = '0 0 8px 0';
+      heading.style.color = '#fff';
+
+      const body = document.createElement('p');
+      body.innerText = 'Add a point charge from the sidebar to begin rendering electric fields and potentials.';
+      body.style.margin = '0';
+      body.style.fontSize = '12px';
+      body.style.color = '#a1a1aa';
+
+      emptyState.appendChild(heading);
+      emptyState.appendChild(body);
+      dynamicSliders.appendChild(emptyState);
+    }
+
+    // 3. Selection details and controls
+    if (selectedChargeId) {
+      const charge = config.charges.find(c => c.id === selectedChargeId);
+      if (charge) {
+        const posInfo = document.createElement('div');
+        posInfo.style.fontSize = '13px';
+        posInfo.style.marginBottom = '12px';
+        posInfo.style.color = '#a1a1aa';
+        posInfo.innerHTML = `<span>Selected Charge: </span><strong>${charge.id}</strong><br/><span>Position: </span><strong>(${charge.x.toFixed(2)}m, ${charge.y.toFixed(2)}m)</strong>`;
+        dynamicSliders.appendChild(posInfo);
+
+        addSlider('Charge Magnitude (nC)', -10, 10, 1, charge.q, (v) => {
+          charge.q = v;
+          applyConfig(config);
+        });
+
+        addSlider('Position X (m)', -8, 8, 0.1, charge.x, (v) => {
+          charge.x = v;
+          applyConfig(config);
+        });
+
+        addSlider('Position Y (m)', -6, 6, 0.1, charge.y, (v) => {
+          charge.y = v;
+          applyConfig(config);
+        });
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn';
+        deleteBtn.style.backgroundColor = '#ef4444';
+        deleteBtn.style.color = '#ffffff';
+        deleteBtn.style.width = '100%';
+        deleteBtn.style.marginTop = '16px';
+        deleteBtn.innerText = 'Delete Charge';
+        deleteBtn.setAttribute('aria-label', 'Delete Charge: Remove the selected charge from the canvas');
+        deleteBtn.addEventListener('click', () => {
+          config.charges = config.charges.filter(c => c.id !== selectedChargeId);
+          selectedChargeId = null;
+          applyConfig(config);
+        });
+        dynamicSliders.appendChild(deleteBtn);
+      }
+    }
   }
 }
 
@@ -1648,6 +1796,8 @@ function resetSimulation() {
     gravityDiagram.resetState();
   } else if (activeConfig.type === 'thermo') {
     thermoDiagram.resetState();
+  } else if (activeConfig.type === 'em') {
+    emDiagram.resetState();
   }
   drawActiveSimulation();
 }
@@ -1746,6 +1896,8 @@ function stepSimulation(dt: number) {
     gravityDiagram.step(dt);
   } else if (activeConfig.type === 'thermo') {
     thermoDiagram.step(dt);
+  } else if (activeConfig.type === 'em') {
+    emDiagram.step(dt);
   }
 }
 
@@ -1771,6 +1923,8 @@ function drawActiveSimulation() {
   } else if (activeConfig.type === 'thermo') {
     thermoDiagram.draw();
     graphModule.drawThermo(thermoDiagram);
+  } else if (activeConfig.type === 'em') {
+    emDiagram.draw(pc, selectedChargeId);
   }
 }
 
@@ -2039,6 +2193,21 @@ function updateStatusBar() {
     statusExtra3.classList.remove('hidden');
     statusExtra3.querySelector('.status-label')!.innerHTML = 'Volume (V):';
     statusExtra3.querySelector('.status-value')!.innerHTML = `${thermoDiagram.volume.toFixed(2)}`;
+  } else if (activeConfig.type === 'em') {
+    statusTime.innerText = '--';
+
+    statusExtra1.classList.remove('hidden');
+    statusExtra1.querySelector('.status-label')!.innerHTML = 'Charges:';
+    statusExtra1.querySelector('.status-value')!.innerHTML = `${activeConfig.charges.length}`;
+
+    statusExtra2.classList.remove('hidden');
+    const selCharge = activeConfig.charges.find(c => c.id === selectedChargeId);
+    statusExtra2.querySelector('.status-label')!.innerHTML = 'Selected:';
+    statusExtra2.querySelector('.status-value')!.innerHTML = selCharge ? `${selCharge.id} (${selCharge.q > 0 ? '+' : ''}${selCharge.q} nC)` : 'None';
+
+    statusExtra3.classList.remove('hidden');
+    statusExtra3.querySelector('.status-label')!.innerHTML = 'Telemetry:';
+    statusExtra3.querySelector('.status-value')!.innerHTML = selCharge ? `(${selCharge.x.toFixed(1)}m, ${selCharge.y.toFixed(1)}m)` : 'Click to select';
   }
 }
 
