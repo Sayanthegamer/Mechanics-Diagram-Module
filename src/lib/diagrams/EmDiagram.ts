@@ -63,11 +63,74 @@ export class EmDiagram {
     return { ex, ey };
   }
 
+  private drawFieldGrid(canvas: PhysicsCanvas): void {
+    const width = canvas.canvas.clientWidth;
+    const height = canvas.canvas.clientHeight;
+    const spacing = 30; // 30px spacing
+
+    const isDark = canvas.theme === 'dark';
+    const baseColorPrefix = isDark ? 'rgba(255, 255, 255,' : 'rgba(0, 0, 0,';
+
+    // Min distance from charge to avoid arrow overlap
+    const minDistanceSq = Math.pow(15 / canvas.scale, 2);
+
+    for (let sx = spacing / 2; sx < width; sx += spacing) {
+      for (let sy = spacing / 2; sy < height; sy += spacing) {
+        const p = canvas.toPhysics(sx, sy);
+
+        // Singularity/overlap check: do not draw arrow if inside or too close to any charge center
+        let tooClose = false;
+        for (const c of this.charges) {
+          const dx = p.x - c.x;
+          const dy = p.y - c.y;
+          if (dx * dx + dy * dy < minDistanceSq) {
+            tooClose = true;
+            break;
+          }
+        }
+        if (tooClose) continue;
+
+        const E = this.getFieldAt(p.x, p.y);
+        const mag = Math.sqrt(E.ex * E.ex + E.ey * E.ey);
+        if (mag < 1e-4) continue;
+
+        // Non-linear arrow length scaling using clamped arctan
+        const maxLength = 18; // px
+        const scaledLength = maxLength * (2 / Math.PI) * Math.atan(mag * 0.05);
+        if (scaledLength < 2) continue;
+
+        // Fade arrow opacity in weak fields
+        const opacity = Math.min(1.0, mag * 0.1) * 0.45;
+        if (opacity < 0.02) continue;
+
+        const ux = E.ex / mag;
+        const uy = E.ey / mag;
+
+        const scaledLengthPhys = scaledLength / canvas.scale;
+        const fx = p.x - ux * (scaledLengthPhys / 2);
+        const fy = p.y - uy * (scaledLengthPhys / 2);
+        const tx = p.x + ux * (scaledLengthPhys / 2);
+        const ty = p.y + uy * (scaledLengthPhys / 2);
+
+        const color = `${baseColorPrefix} ${opacity})`;
+        const headSize = Math.max(3, scaledLength * 0.35);
+
+        canvas.drawArrow(fx, fy, tx, ty, color, '', {
+          lineWidth: 1.2,
+          headSize: headSize
+        });
+      }
+    }
+  }
+
   public draw(canvas: PhysicsCanvas, selectedChargeId: string | null = null): void {
     const ctx = canvas.ctx;
     canvas.clear();
     canvas.resetOrigin();
     canvas.drawGrid(1);
+
+    // Draw electric field vector grid
+    this.drawFieldGrid(canvas);
 
     ctx.save();
     
