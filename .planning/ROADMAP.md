@@ -82,8 +82,8 @@
 
 **Plans**: 2 plans
 
-- [ ] 08-01-PLAN.md — Port matrix solver, types, serialization and element base classes
-- [ ] 08-02-PLAN.md — Port Circuit solver engine and integrate stepping loops
+- [x] 08-01-PLAN.md — Port matrix solver, types, serialization and element base classes
+- [x] 08-02-PLAN.md — Port Circuit solver engine and integrate stepping loops
 
 ### Phase 9: Schematic Breadboard Canvas UI & Parameter Bindings
 
@@ -122,7 +122,7 @@
 | 5. Mechanics/Thermo | v4.0 | 5/5 | Complete | 2026-06-08 |
 | 6. Electrostatics | v5.0 | 2/2 | Complete    | 2026-06-10 |
 | 7. Lorentz Force | v5.0 | 2/2 | Complete   | 2026-06-10 |
-| 8. Circuit Engine | v5.0 | 0/2 | Planned    |  |
+| 8. Circuit Engine | v5.0 | 2/2 | Complete   | 2026-06-10 |
 | 9. Schematic UI | v5.0 | 0/0 | Not started | - |
 | 10. Oscilloscope | v5.0 | 0/0 | Not started | - |
 
