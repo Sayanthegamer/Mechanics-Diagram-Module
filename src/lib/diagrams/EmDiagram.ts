@@ -463,6 +463,85 @@ export class EmDiagram {
     return null;
   }
 
+  private drawBField(canvas: PhysicsCanvas): void {
+    if (!this.config || Math.abs(this.config.bField) < 1e-4) return;
+    const width = canvas.canvas.clientWidth;
+    const height = canvas.canvas.clientHeight;
+    const ctx = canvas.ctx;
+    const isDark = canvas.theme === 'dark';
+    const bColor = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)';
+
+    ctx.save();
+    ctx.strokeStyle = bColor;
+    ctx.fillStyle = bColor;
+    ctx.lineWidth = 1.0;
+
+    const spacing = 45; // 45px grid spacing for symbols
+    const B = this.config.bField;
+    const mode = this.config.bFieldMode;
+
+    if (mode === 'symbols') {
+      for (let x = spacing / 2; x < width; x += spacing) {
+        for (let y = spacing / 2; y < height; y += spacing) {
+          ctx.beginPath();
+          ctx.arc(x, y, 6, 0, 2 * Math.PI);
+          ctx.stroke();
+
+          if (B > 0) {
+            // Out of page: dot
+            ctx.beginPath();
+            ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+            ctx.fill();
+          } else {
+            // Into page: cross
+            const r = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(x - r, y - r);
+            ctx.lineTo(x + r, y + r);
+            ctx.moveTo(x + r, y - r);
+            ctx.lineTo(x - r, y + r);
+            ctx.stroke();
+          }
+        }
+      }
+    } else {
+      // Field lines: draw perspective vector arrows indicating depth
+      for (let x = spacing / 2; x < width; x += spacing) {
+        for (let y = spacing / 2; y < height; y += spacing) {
+          if (B > 0) {
+            // Out of page: draw dot and small perspective arrowhead pointing out
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 4, y - 4);
+            ctx.moveTo(x + 4, y - 4);
+            ctx.lineTo(x + 1, y - 4);
+            ctx.moveTo(x + 4, y - 4);
+            ctx.lineTo(x + 4, y - 1);
+            ctx.stroke();
+          } else {
+            // Into page: draw cross and small depth ring
+            const r = 4;
+            ctx.beginPath();
+            ctx.moveTo(x - r, y - r);
+            ctx.lineTo(x + r, y + r);
+            ctx.moveTo(x + r, y - r);
+            ctx.lineTo(x - r, y + r);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
   public draw(canvas: PhysicsCanvas, selectedChargeId: string | null = null): void {
     const ctx = canvas.ctx;
     canvas.clear();
@@ -477,6 +556,9 @@ export class EmDiagram {
 
     // Draw electric field lines via RK2 integration
     this.drawFieldLines(canvas);
+
+    // Draw uniform B-field symbols or lines underneath particle trails and charges
+    this.drawBField(canvas);
 
     // Draw particle trails
     ctx.save();
