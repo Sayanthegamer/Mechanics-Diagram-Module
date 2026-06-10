@@ -14,8 +14,8 @@
 
 ### Lorentz Deflection Tracer
 
-- [ ] **EM-05**: Particle gun component launches charged test particles into uniform magnetic field regions.
-- [ ] **EM-06**: Test particles trace circular, helical, or cycloidal paths depending on velocity vector and field parameters.
+- [x] **EM-05**: Particle gun component launches charged test particles into uniform magnetic field regions.
+- [x] **EM-06**: Test particles trace circular, helical, or cycloidal paths depending on velocity vector and field parameters.
 
 ### Circuits Solver Engine
 
@@ -42,8 +42,8 @@
 | EM-02 | Phase 1 | Complete |
 | EM-03 | Phase 1 | Complete |
 | EM-04 | Phase 1 | Complete |
-| EM-05 | Phase 2 | Pending |
-| EM-06 | Phase 2 | Pending |
+| EM-05 | Phase 2 | Complete |
+| EM-06 | Phase 2 | Complete |
 | EM-07 | Phase 3 | Pending |
 | EM-08 | Phase 4 | Pending |
 | EM-09 | Phase 5 | Pending |
