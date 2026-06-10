@@ -66,7 +66,10 @@
   1. Particle gun fires customizable charges into the magnetic field.
   2. Trails of fired particles trace perfect circles, helices, and cycloids.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+- [ ] 07-01-PLAN.md — Types, config, manual sidebar controls & aim/reposition gun interaction on canvas
+- [ ] 07-02-PLAN.md — Lorentz RK4 Integration Step, trail rendering, background B-field visual modes, collisions, and telemetry
 
 ### Phase 8: Circuits Engine (Resistors, Caps, & Inductors Solver)
 
@@ -115,7 +118,7 @@
 | 4. Waves | v3.0 | 2/2 | Complete | 2026-06-01 |
 | 5. Mechanics/Thermo | v4.0 | 5/5 | Complete | 2026-06-08 |
 | 6. Electrostatics | v5.0 | 2/2 | Complete    | 2026-06-10 |
-| 7. Lorentz Force | v5.0 | 0/0 | Not started | - |
+| 7. Lorentz Force | v5.0 | 0/2 | Planned    |  |
 | 8. Circuit Engine | v5.0 | 0/0 | Not started | - |
 | 9. Schematic UI | v5.0 | 0/0 | Not started | - |
 | 10. Oscilloscope | v5.0 | 0/0 | Not started | - |
