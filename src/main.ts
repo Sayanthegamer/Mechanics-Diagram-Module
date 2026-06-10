@@ -1,5 +1,5 @@
 import './style.css';
-import type { PhysicsConfig } from './lib/types';
+import type { PhysicsConfig, EmConfig } from './lib/types';
 import { PhysicsCanvas } from './lib/PhysicsCanvas';
 import { FbdDiagram } from './lib/diagrams/FbdDiagram';
 import { VectorDiagram } from './lib/diagrams/VectorDiagram';
@@ -901,10 +901,18 @@ function handleInteractionStart(clientX: number, clientY: number) {
       isPlaying = false;
       applyConfig(activeConfig);
       return;
-    } else {
-      selectedChargeId = null;
-      applyConfig(activeConfig);
     }
+    const gunTarget = emDiagram.getGunDragTarget(p);
+    if (gunTarget) {
+      isDragging = true;
+      dragTarget = gunTarget;
+      selectedChargeId = null;
+      isPlaying = false;
+      applyConfig(activeConfig);
+      return;
+    }
+    selectedChargeId = null;
+    applyConfig(activeConfig);
   }
 
   // Viewport panning fallback if no interactive element is grabbed
@@ -1043,6 +1051,21 @@ function handleInteractionMove(clientX: number, clientY: number) {
       target.x = Math.max(-8, Math.min(8, p.x));
       target.y = Math.max(-6, Math.min(6, p.y));
       applyConfig(activeConfig);
+    } else if (dragTarget === 'gun-base') {
+      activeConfig.gunX = Math.max(-8, Math.min(8, p.x));
+      activeConfig.gunY = Math.max(-6, Math.min(6, p.y));
+      applyConfig(activeConfig);
+    } else if (dragTarget === 'gun-barrel') {
+      const dx = p.x - activeConfig.gunX;
+      const dy = p.y - activeConfig.gunY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      let angleVal = Math.atan2(dy, dx) * (180 / Math.PI);
+      angleVal = (angleVal + 360) % 360;
+      
+      let speedVal = dist / 0.10;
+      activeConfig.gunSpeed = Math.max(5, Math.min(30, speedVal));
+      activeConfig.gunAngle = angleVal;
+      applyConfig(activeConfig);
     }
   }
 } else {
@@ -1138,6 +1161,9 @@ function handleInteractionMove(clientX: number, clientY: number) {
           hover = true;
           break;
         }
+      }
+      if (emDiagram.getGunDragTarget(p)) {
+        hover = true;
       }
     }
     pc.canvas.style.cursor = hover ? 'grab' : 'default';
@@ -1771,6 +1797,112 @@ function renderSliders(config: PhysicsConfig) {
         dynamicSliders.appendChild(deleteBtn);
       }
     }
+
+    const emConfig = config as EmConfig;
+
+    const hr = document.createElement('hr');
+    hr.style.borderColor = '#27272a';
+    hr.style.margin = '16px 0';
+    dynamicSliders.appendChild(hr);
+
+    const subheader = document.createElement('h3');
+    subheader.innerText = 'Lorentz Deflection Controls';
+    subheader.style.fontSize = '13px';
+    subheader.style.color = '#ffffff';
+    subheader.style.marginBottom = '12px';
+    dynamicSliders.appendChild(subheader);
+
+    addSlider('Magnetic Field (T)', -5, 5, 0.1, emConfig.bField, (v) => {
+      emConfig.bField = v;
+    });
+
+    const selectWrapper = document.createElement('div');
+    selectWrapper.className = 'slider-wrapper';
+    selectWrapper.style.marginBottom = '12px';
+    
+    const selectLabel = document.createElement('label');
+    selectLabel.style.display = 'block';
+    selectLabel.style.fontSize = '12px';
+    selectLabel.style.fontWeight = 'bold';
+    selectLabel.style.marginBottom = '4px';
+    selectLabel.innerText = 'B-Field Visual Mode';
+    
+    const selectEl = document.createElement('select');
+    selectEl.className = 'select-preset';
+    selectEl.style.width = '100%';
+    selectEl.style.padding = '6px';
+    selectEl.style.borderRadius = '4px';
+    selectEl.style.backgroundColor = '#16161a';
+    selectEl.style.color = '#fff';
+    selectEl.style.border = '1px solid #3f3f46';
+    
+    const optSymbols = document.createElement('option');
+    optSymbols.value = 'symbols';
+    optSymbols.innerText = 'Symbols (Grid)';
+    const optLines = document.createElement('option');
+    optLines.value = 'lines';
+    optLines.innerText = 'Field Lines';
+    
+    selectEl.appendChild(optSymbols);
+    selectEl.appendChild(optLines);
+    selectEl.value = emConfig.bFieldMode;
+    
+    selectEl.addEventListener('change', () => {
+      emConfig.bFieldMode = selectEl.value as 'symbols' | 'lines';
+      applyConfig(emConfig);
+    });
+    
+    selectWrapper.appendChild(selectLabel);
+    selectWrapper.appendChild(selectEl);
+    dynamicSliders.appendChild(selectWrapper);
+
+    addSlider('Particle Charge (nC)', -10, 10, 0.5, emConfig.particleCharge, (v) => {
+      emConfig.particleCharge = v;
+    });
+
+    addSlider('Particle Mass', 0.1, 5.0, 0.1, emConfig.particleMass, (v) => {
+      emConfig.particleMass = v;
+    });
+
+    addSlider('Launch Speed (m/s)', 5, 30, 1, emConfig.gunSpeed, (v) => {
+      emConfig.gunSpeed = v;
+    });
+
+    addSlider('Launch Angle (°)', 0, 360, 5, emConfig.gunAngle, (v) => {
+      emConfig.gunAngle = v;
+    });
+
+    const actionBtnContainer = document.createElement('div');
+    actionBtnContainer.style.display = 'flex';
+    actionBtnContainer.style.gap = '8px';
+    actionBtnContainer.style.marginTop = '16px';
+    actionBtnContainer.style.marginBottom = '16px';
+
+    const fireBtn = document.createElement('button');
+    fireBtn.className = 'btn btn-primary';
+    fireBtn.style.flex = '1';
+    fireBtn.style.backgroundColor = '#a855f7';
+    fireBtn.style.color = '#ffffff';
+    fireBtn.innerText = 'Fire Particle';
+    fireBtn.setAttribute('aria-label', 'Fire Particle: Launch a test particle from the gun turret');
+    fireBtn.addEventListener('click', () => {
+      emDiagram.fireParticle();
+    });
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'btn';
+    resetBtn.style.flex = '1';
+    resetBtn.style.backgroundColor = '#ef4444';
+    resetBtn.style.color = '#ffffff';
+    resetBtn.innerText = 'Reset Simulation';
+    resetBtn.setAttribute('aria-label', 'Reset Simulation: Clear all launched particles and trajectory trails');
+    resetBtn.addEventListener('click', () => {
+      resetSimulation();
+    });
+
+    actionBtnContainer.appendChild(fireBtn);
+    actionBtnContainer.appendChild(resetBtn);
+    dynamicSliders.appendChild(actionBtnContainer);
   }
 }
 

@@ -1,4 +1,4 @@
-import type { EmConfig, EmCharge } from '../types';
+import type { EmConfig, EmCharge, EmParticle } from '../types';
 import { PhysicsCanvas } from '../PhysicsCanvas';
 
 export class EmDiagram {
@@ -7,6 +7,7 @@ export class EmDiagram {
 
   // State variables
   public charges: EmCharge[] = [];
+  public particles: EmParticle[] = [];
 
   // Constants
   private readonly ke: number = 10.0; // Coulomb's constant
@@ -25,6 +26,7 @@ export class EmDiagram {
     if (!this.config) return;
     // Deep clone charges to avoid mutating the original config array
     this.charges = this.config.charges.map(c => ({ ...c }));
+    this.particles = [];
   }
 
   public step(_dt: number): void {
@@ -343,6 +345,49 @@ export class EmDiagram {
     ctx.restore();
   }
 
+  public fireParticle(): void {
+    if (!this.config) return;
+    const angleRad = this.config.gunAngle * Math.PI / 180;
+    const vx = this.config.gunSpeed * Math.cos(angleRad);
+    const vy = this.config.gunSpeed * Math.sin(angleRad);
+
+    const newParticle: EmParticle = {
+      id: 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      x: this.config.gunX,
+      y: this.config.gunY,
+      vx: vx,
+      vy: vy,
+      q: this.config.particleCharge,
+      m: this.config.particleMass,
+      trail: [{ x: this.config.gunX, y: this.config.gunY }]
+    };
+
+    if (this.particles.length >= 20) {
+      this.particles.shift();
+    }
+    this.particles.push(newParticle);
+  }
+
+  public getGunDragTarget(p: { x: number; y: number }): 'gun-base' | 'gun-barrel' | null {
+    if (!this.config) return null;
+    const angleRad = this.config.gunAngle * Math.PI / 180;
+    const barrelLen = 0.8;
+    const tipX = this.config.gunX + Math.cos(angleRad) * barrelLen;
+    const tipY = this.config.gunY + Math.sin(angleRad) * barrelLen;
+
+    const distToTip = Math.sqrt((p.x - tipX) ** 2 + (p.y - tipY) ** 2);
+    if (distToTip < 0.4) {
+      return 'gun-barrel';
+    }
+
+    const distToBase = Math.sqrt((p.x - this.config.gunX) ** 2 + (p.y - this.config.gunY) ** 2);
+    if (distToBase < 0.4) {
+      return 'gun-base';
+    }
+
+    return null;
+  }
+
   public draw(canvas: PhysicsCanvas, selectedChargeId: string | null = null): void {
     const ctx = canvas.ctx;
     canvas.clear();
@@ -357,6 +402,23 @@ export class EmDiagram {
 
     // Draw electric field lines via RK2 integration
     this.drawFieldLines(canvas);
+
+    // Draw particle trails
+    ctx.save();
+    ctx.strokeStyle = '#eab308'; // Glowing yellow trail (from UI-SPEC.md)
+    ctx.lineWidth = 2.0;
+    for (const p of this.particles) {
+      if (p.trail.length < 2) continue;
+      ctx.beginPath();
+      const startPos = canvas.toScreen(p.trail[0].x, p.trail[0].y);
+      ctx.moveTo(startPos.x, startPos.y);
+      for (let i = 1; i < p.trail.length; i++) {
+        const pt = canvas.toScreen(p.trail[i].x, p.trail[i].y);
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
 
     ctx.save();
     
@@ -407,5 +469,66 @@ export class EmDiagram {
     }
     
     ctx.restore();
+
+    // Draw active particles
+    ctx.save();
+    for (const p of this.particles) {
+      const screenPos = canvas.toScreen(p.x, p.y);
+      ctx.beginPath();
+      ctx.arc(screenPos.x, screenPos.y, 6, 0, 2 * Math.PI);
+      ctx.fillStyle = p.q >= 0 ? '#ef4444' : '#3b82f6'; // positive red, negative blue
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Draw particle gun turret
+    if (this.config) {
+      const angleRad = this.config.gunAngle * Math.PI / 180;
+      const barrelLen = 0.8; // physics units
+      const barrelTipX = this.config.gunX + Math.cos(angleRad) * barrelLen;
+      const barrelTipY = this.config.gunY + Math.sin(angleRad) * barrelLen;
+
+      const gunScreen = canvas.toScreen(this.config.gunX, this.config.gunY);
+      const tipScreen = canvas.toScreen(barrelTipX, barrelTipY);
+
+      // 1. Draw dashed initial velocity direction arrow
+      const arrowLen = this.config.gunSpeed * 0.08;
+      const arrowEndX = barrelTipX + Math.cos(angleRad) * arrowLen;
+      const arrowEndY = barrelTipY + Math.sin(angleRad) * arrowLen;
+      canvas.drawArrow(barrelTipX, barrelTipY, arrowEndX, arrowEndY, 'rgba(168, 85, 247, 0.6)', '', { dashed: true, headSize: 8 });
+
+      // 2. Draw turret base outer circle
+      ctx.save();
+      ctx.strokeStyle = '#a855f7'; // Purple accent (UI-SPEC.md)
+      ctx.fillStyle = canvas.theme === 'dark' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.1)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(gunScreen.x, gunScreen.y, 18, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // 3. Draw thick barrel pointing at gunAngle
+      ctx.save();
+      ctx.strokeStyle = '#a855f7';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(gunScreen.x, gunScreen.y);
+      ctx.lineTo(tipScreen.x, tipScreen.y);
+      ctx.stroke();
+      ctx.restore();
+
+      // 4. Draw turret base inner core
+      ctx.save();
+      ctx.fillStyle = '#a855f7';
+      ctx.beginPath();
+      ctx.arc(gunScreen.x, gunScreen.y, 10, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }
