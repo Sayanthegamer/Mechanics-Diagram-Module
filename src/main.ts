@@ -543,14 +543,30 @@ const PRESETS: Record<string, PhysicsConfig> = {
     type: 'em',
     charges: [
       { id: 'q1', x: 0.0, y: 0.0, q: 2.0 }
-    ]
+    ],
+    bField: 2.0,
+    bFieldMode: 'symbols',
+    gunX: -6.0,
+    gunY: 0.0,
+    gunAngle: 0.0,
+    gunSpeed: 15.0,
+    particleCharge: 2.0,
+    particleMass: 1.0
   },
   'em-dipole': {
     type: 'em',
     charges: [
       { id: 'q1', x: -1.5, y: 0.0, q: 2.0 },
       { id: 'q2', x: 1.5, y: 0.0, q: -2.0 }
-    ]
+    ],
+    bField: 2.0,
+    bFieldMode: 'symbols',
+    gunX: -6.0,
+    gunY: 0.0,
+    gunAngle: 0.0,
+    gunSpeed: 15.0,
+    particleCharge: 2.0,
+    particleMass: 1.0
   },
   'em-quadrupole': {
     type: 'em',
@@ -559,7 +575,15 @@ const PRESETS: Record<string, PhysicsConfig> = {
       { id: 'q2', x: 1.5, y: 1.5, q: -2.0 },
       { id: 'q3', x: -1.5, y: -1.5, q: -2.0 },
       { id: 'q4', x: 1.5, y: -1.5, q: 2.0 }
-    ]
+    ],
+    bField: 2.0,
+    bFieldMode: 'symbols',
+    gunX: -6.0,
+    gunY: 0.0,
+    gunAngle: 0.0,
+    gunSpeed: 15.0,
+    particleCharge: 2.0,
+    particleMass: 1.0
   }
 };
 

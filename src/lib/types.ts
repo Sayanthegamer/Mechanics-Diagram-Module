@@ -213,11 +213,31 @@ export interface EmCharge {
   q: number; // charge in nC
 }
 
+export interface EmParticle {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  q: number;
+  m: number;
+  trail: { x: number; y: number }[];
+}
+
 export interface EmConfig extends BaseConfig {
   type: 'em';
   charges: EmCharge[];
+  bField: number;
+  bFieldMode: 'symbols' | 'lines';
+  gunX: number;
+  gunY: number;
+  gunAngle: number;
+  gunSpeed: number;
+  particleCharge: number;
+  particleMass: number;
 }
 
 export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig | ThermoConfig | EmConfig;
+
 
 
