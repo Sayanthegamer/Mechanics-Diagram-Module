@@ -1246,4 +1246,25 @@ export class GraphModule {
 
     this.ctx.restore();
   }
+
+  public drawEmptyState(heading: string, body: string): void {
+    this.clear();
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+    this.ctx.save();
+    
+    // Draw heading
+    this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+    this.ctx.font = 'bold 13px Outfit, sans-serif';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(heading, width / 2, height / 2 - 10);
+
+    // Draw body
+    this.ctx.fillStyle = this.theme === 'dark' ? '#888' : '#666';
+    this.ctx.font = '11px Outfit, sans-serif';
+    this.ctx.fillText(body, width / 2, height / 2 + 10);
+
+    this.ctx.restore();
+  }
 }

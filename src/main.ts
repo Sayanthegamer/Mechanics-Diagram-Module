@@ -1278,8 +1278,10 @@ function applyConfig(config: PhysicsConfig) {
     }
   } else if (config.type === 'em') {
     emDiagram.setConfig(config);
-    graphCard.classList.add('hidden');
-    selectGraphMode.classList.add('hidden');
+    graphCard.classList.remove('hidden');
+    selectGraphMode.classList.remove('hidden');
+    graphModule.mode = 'kinematics';
+    selectGraphMode.value = 'kinematics';
   }
 
   // Generate controls UI
@@ -1309,7 +1311,8 @@ function updateTitles(config: PhysicsConfig) {
       graphTitle.innerText = `Real-Time Graph: ${graphModule.mode === 'pv-diagram' ? 'PRESSURE-VOLUME (P-V) DIAGRAM' : 'TEMPERATURE-ENTROPY (T-S) DIAGRAM'}`;
     }
   } else if (config.type === 'em') {
-    canvasTitle.innerText = 'Electrostatics Sandbox: POINT CHARGES';
+    canvasTitle.innerText = 'Lorentz Force & Magnetic Deflections';
+    graphTitle.innerText = `Real-Time Graph: ${graphModule.mode.replace(/-/g, ' ').toUpperCase()}`;
   }
 }
 
@@ -1970,6 +1973,15 @@ function handleGraphModeChange() {
     graphModule.draw(shmDiagram.history);
   } else if (activeConfig.type === 'thermo') {
     graphModule.drawThermo(thermoDiagram);
+  } else if (activeConfig.type === 'em') {
+    if (emDiagram.particles.length > 0) {
+      graphModule.draw(emDiagram.history);
+    } else {
+      graphModule.drawEmptyState(
+        'No Particles Launched',
+        "Adjust launch parameters and click 'Fire Particle' to observe Lorentz force deflections."
+      );
+    }
   }
 }
 
@@ -2081,6 +2093,14 @@ function drawActiveSimulation() {
     graphModule.drawThermo(thermoDiagram);
   } else if (activeConfig.type === 'em') {
     emDiagram.draw(pc, selectedChargeId);
+    if (emDiagram.particles.length > 0) {
+      graphModule.draw(emDiagram.history);
+    } else {
+      graphModule.drawEmptyState(
+        'No Particles Launched',
+        "Adjust launch parameters and click 'Fire Particle' to observe Lorentz force deflections."
+      );
+    }
   }
 }
 
@@ -2350,20 +2370,39 @@ function updateStatusBar() {
     statusExtra3.querySelector('.status-label')!.innerHTML = 'Volume (V):';
     statusExtra3.querySelector('.status-value')!.innerHTML = `${thermoDiagram.volume.toFixed(2)}`;
   } else if (activeConfig.type === 'em') {
-    statusTime.innerText = '--';
+    if (emDiagram.particles.length > 0) {
+      statusTime.innerText = `${emDiagram.t.toFixed(2)}s`;
+      const p = emDiagram.particles[0];
+      const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      const ke = 0.5 * p.m * speed * speed;
 
-    statusExtra1.classList.remove('hidden');
-    statusExtra1.querySelector('.status-label')!.innerHTML = 'Charges:';
-    statusExtra1.querySelector('.status-value')!.innerHTML = `${activeConfig.charges.length}`;
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Position (X, Y):';
+      statusExtra1.querySelector('.status-value')!.innerHTML = `(${p.x.toFixed(2)}m, ${p.y.toFixed(2)}m)`;
 
-    statusExtra2.classList.remove('hidden');
-    const selCharge = activeConfig.charges.find(c => c.id === selectedChargeId);
-    statusExtra2.querySelector('.status-label')!.innerHTML = 'Selected:';
-    statusExtra2.querySelector('.status-value')!.innerHTML = selCharge ? `${selCharge.id} (${selCharge.q > 0 ? '+' : ''}${selCharge.q} nC)` : 'None';
+      statusExtra2.classList.remove('hidden');
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Velocity (v):';
+      statusExtra2.querySelector('.status-value')!.innerHTML = `${speed.toFixed(2)} m/s`;
 
-    statusExtra3.classList.remove('hidden');
-    statusExtra3.querySelector('.status-label')!.innerHTML = 'Telemetry:';
-    statusExtra3.querySelector('.status-value')!.innerHTML = selCharge ? `(${selCharge.x.toFixed(1)}m, ${selCharge.y.toFixed(1)}m)` : 'Click to select';
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Kinetic Energy:';
+      statusExtra3.querySelector('.status-value')!.innerHTML = `${ke.toFixed(2)} J`;
+    } else {
+      statusTime.innerText = '--';
+
+      statusExtra1.classList.remove('hidden');
+      statusExtra1.querySelector('.status-label')!.innerHTML = 'Charges:';
+      statusExtra1.querySelector('.status-value')!.innerHTML = `${activeConfig.charges.length}`;
+
+      statusExtra2.classList.remove('hidden');
+      const selCharge = activeConfig.charges.find(c => c.id === selectedChargeId);
+      statusExtra2.querySelector('.status-label')!.innerHTML = 'Selected:';
+      statusExtra2.querySelector('.status-value')!.innerHTML = selCharge ? `${selCharge.id} (${selCharge.q > 0 ? '+' : ''}${selCharge.q} nC)` : 'None';
+
+      statusExtra3.classList.remove('hidden');
+      statusExtra3.querySelector('.status-label')!.innerHTML = 'Telemetry:';
+      statusExtra3.querySelector('.status-value')!.innerHTML = selCharge ? `(${selCharge.x.toFixed(1)}m, ${selCharge.y.toFixed(1)}m)` : 'Click to select';
+    }
   }
 }
 

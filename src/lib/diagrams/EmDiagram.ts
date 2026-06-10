@@ -1,5 +1,6 @@
 import type { EmConfig, EmCharge, EmParticle } from '../types';
 import { PhysicsCanvas } from '../PhysicsCanvas';
+import type { EnergyStatePoint } from './GraphModule';
 
 export class EmDiagram {
   public pc: PhysicsCanvas;
@@ -8,6 +9,8 @@ export class EmDiagram {
   // State variables
   public charges: EmCharge[] = [];
   public particles: EmParticle[] = [];
+  public history: EnergyStatePoint[] = [];
+  public t: number = 0;
 
   // Constants
   private readonly ke: number = 10.0; // Coulomb's constant
@@ -27,6 +30,8 @@ export class EmDiagram {
     // Deep clone charges to avoid mutating the original config array
     this.charges = this.config.charges.map(c => ({ ...c }));
     this.particles = [];
+    this.history = [];
+    this.t = 0;
   }
 
   private getDerivatives(
@@ -106,6 +111,26 @@ export class EmDiagram {
     }
 
     this.particles = remainingParticles;
+
+    // Record telemetry history for the active particle
+    this.t += dt;
+    if (this.particles.length > 0) {
+      const p = this.particles[0];
+      const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+      const ke = 0.5 * p.m * speed * speed;
+      const pe = p.q * this.getPotentialAt(p.x, p.y);
+      this.history.push({
+        t: this.t,
+        kineticEnergy: ke,
+        potentialEnergy: pe,
+        totalEnergy: ke + pe,
+        x: p.x,
+        v: speed
+      });
+      if (this.history.length > 200) {
+        this.history.shift();
+      }
+    }
   }
 
   /**
