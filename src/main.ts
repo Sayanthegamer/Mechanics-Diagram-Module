@@ -537,6 +537,28 @@ const PRESETS: Record<string, PhysicsConfig> = {
     showDistribution: false,
     showEntropy: true,
     autoCycle: false
+  },
+  'em-single': {
+    type: 'em',
+    charges: [
+      { id: 'q1', x: 0.0, y: 0.0, q: 2.0 }
+    ]
+  },
+  'em-dipole': {
+    type: 'em',
+    charges: [
+      { id: 'q1', x: -1.5, y: 0.0, q: 2.0 },
+      { id: 'q2', x: 1.5, y: 0.0, q: -2.0 }
+    ]
+  },
+  'em-quadrupole': {
+    type: 'em',
+    charges: [
+      { id: 'q1', x: -1.5, y: 1.5, q: 2.0 },
+      { id: 'q2', x: 1.5, y: 1.5, q: -2.0 },
+      { id: 'q3', x: -1.5, y: -1.5, q: -2.0 },
+      { id: 'q4', x: 1.5, y: -1.5, q: 2.0 }
+    ]
   }
 };
 

@@ -205,25 +205,19 @@ export interface ThermoConfig extends BaseConfig {
   autoCycle: boolean;
 }
 
-// ------------------ ELECTROMAGNETISM & CIRCUITS ------------------
+// ------------------ ELECTROSTATICS (EM) ------------------
 export interface EmCharge {
   id: string;
   x: number;
   y: number;
-  q: number; // charge: e.g. +1 or -1
-  isDragging?: boolean;
+  q: number; // charge in nC
 }
 
 export interface EmConfig extends BaseConfig {
   type: 'em';
   charges: EmCharge[];
-  showVectors: boolean;
-  showLines: boolean;
-  showEquipotentials: boolean;
-  numLinesPerCharge: number;
 }
 
 export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig | ThermoConfig | EmConfig;
-
 
 
