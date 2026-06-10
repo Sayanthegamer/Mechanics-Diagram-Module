@@ -1247,6 +1247,135 @@ export class GraphModule {
     this.ctx.restore();
   }
 
+  public drawCircuit(history: { t: number; voltages: number[] }[]): void {
+    this.clear();
+    if (history.length < 2) return;
+
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+
+    const axisColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+    const gridColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+    const textColor = this.theme === 'dark' ? '#888' : '#666';
+
+    const padding = { top: 25, right: 20, bottom: 25, left: 45 };
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
+
+    // Determine Y scale bounds dynamically based on all node voltages in history
+    let yMin = Infinity;
+    let yMax = -Infinity;
+
+    history.forEach((d) => {
+      d.voltages.forEach((v) => {
+        yMin = Math.min(yMin, v);
+        yMax = Math.max(yMax, v);
+      });
+    });
+
+    // Default bounds if empty or static
+    if (yMin === Infinity) {
+      yMin = -1;
+      yMax = 6;
+    }
+
+    const yRange = yMax - yMin;
+    if (yRange < 0.01) {
+      yMin -= 1.0;
+      yMax += 1.0;
+    } else {
+      yMin -= yRange * 0.1;
+      yMax += yRange * 0.1;
+    }
+
+    const xMin = history[0].t;
+    const xMax = history[history.length - 1].t;
+    const xRange = xMax - xMin;
+
+    const getXScreen = (t: number) => {
+      return padding.left + ((t - xMin) / (xRange || 1)) * graphWidth;
+    };
+
+    const getYScreen = (val: number) => {
+      return padding.top + (1.0 - (val - yMin) / (yMax - yMin)) * graphHeight;
+    };
+
+    this.ctx.save();
+
+    // Grid
+    this.ctx.strokeStyle = gridColor;
+    this.ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const val = yMin + (i / 4) * (yMax - yMin);
+      const sy = getYScreen(val);
+      this.ctx.beginPath();
+      this.ctx.moveTo(padding.left, sy);
+      this.ctx.lineTo(width - padding.right, sy);
+      this.ctx.stroke();
+
+      this.ctx.fillStyle = textColor;
+      this.ctx.font = '9px Outfit, sans-serif';
+      this.ctx.textAlign = 'right';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(val.toFixed(2) + ' V', padding.left - 8, sy);
+    }
+
+    // Axes border
+    this.ctx.strokeStyle = axisColor;
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(padding.left, padding.top);
+    this.ctx.lineTo(padding.left, height - padding.bottom);
+    this.ctx.lineTo(width - padding.right, height - padding.bottom);
+    this.ctx.stroke();
+
+    // Zero line
+    if (yMin < 0 && yMax > 0) {
+      const zeroY = getYScreen(0);
+      this.ctx.strokeStyle = this.theme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+      this.ctx.beginPath();
+      this.ctx.moveTo(padding.left, zeroY);
+      this.ctx.lineTo(width - padding.right, zeroY);
+      this.ctx.stroke();
+    }
+
+    // Plot curves for each node in the history
+    const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'];
+    const numNodes = history[0].voltages.length;
+
+    for (let nodeIdx = 0; nodeIdx < numNodes; nodeIdx++) {
+      const color = colors[nodeIdx % colors.length];
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+
+      history.forEach((d, idx) => {
+        const sx = getXScreen(d.t);
+        const sy = getYScreen(d.voltages[nodeIdx] ?? 0);
+        if (idx === 0) this.ctx.moveTo(sx, sy);
+        else this.ctx.lineTo(sx, sy);
+      });
+      this.ctx.stroke();
+
+      // Legend
+      const legendX = padding.left + nodeIdx * 100;
+      const legendY = padding.top - 12;
+
+      this.ctx.fillStyle = color;
+      this.ctx.beginPath();
+      this.ctx.arc(legendX, legendY, 4, 0, 2 * Math.PI);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+      this.ctx.font = 'bold 9px Outfit, sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(`Node ${nodeIdx + 1}`, legendX + 8, legendY);
+    }
+
+    this.ctx.restore();
+  }
+
   public drawEmptyState(heading: string, body: string): void {
     this.clear();
     const width = this.canvas.clientWidth;

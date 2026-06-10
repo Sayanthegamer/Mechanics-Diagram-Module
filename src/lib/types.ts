@@ -1,4 +1,4 @@
-export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids' | 'gravity' | 'thermo' | 'em';
+export type DiagramType = 'fbd' | 'vector' | 'shm' | 'wave' | 'mechanics' | 'fluids' | 'gravity' | 'thermo' | 'em' | 'circuit';
 
 export interface BaseConfig {
   type: DiagramType;
@@ -237,7 +237,13 @@ export interface EmConfig extends BaseConfig {
   particleMass: number;
 }
 
-export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig | ThermoConfig | EmConfig;
+// ------------------ CIRCUITS (CIRCUIT) ------------------
+export interface CircuitConfig extends BaseConfig {
+  type: 'circuit';
+  elements: any[];
+}
+
+export type PhysicsConfig = FbdConfig | VectorConfig | ShmConfig | WaveConfig | MechanicsConfig | FluidsConfig | GravityConfig | ThermoConfig | EmConfig | CircuitConfig;
 
 
 

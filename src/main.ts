@@ -12,6 +12,8 @@ import { ThermoDiagram } from './lib/diagrams/ThermoDiagram';
 import { EmDiagram } from './lib/diagrams/EmDiagram';
 import { GraphModule } from './lib/diagrams/GraphModule';
 import type { GraphMode } from './lib/diagrams/GraphModule';
+import { Circuit } from './lib/diagrams/circuit/circuit';
+import { deserializeCircuit } from './lib/diagrams/circuit/serialization';
 
 // --- Preset Configurations ---
 const PRESETS: Record<string, PhysicsConfig> = {
@@ -584,6 +586,38 @@ const PRESETS: Record<string, PhysicsConfig> = {
     gunSpeed: 15.0,
     particleCharge: 2.0,
     particleMass: 1.0
+  },
+  'circuit-rc': {
+    type: 'circuit',
+    elements: [
+      { id: 'gnd', type: 'ground', x: 0, y: 100, x2: 0, y2: 100 },
+      { id: 'vsrc', type: 'voltage', x: 0, y: 100, x2: 0, y2: 0, maxVoltage: 5.0, waveform: 'SQUARE', frequency: 100 },
+      { id: 'r1', type: 'resistor', x: 0, y: 0, x2: 100, y2: 0, resistance: 1000 },
+      { id: 'c1', type: 'capacitor', x: 100, y: 0, x2: 100, y2: 100, capacitance: 1e-6, esr: 0.1 },
+      { id: 'w1', type: 'wire', x: 100, y: 100, x2: 0, y2: 100 }
+    ]
+  },
+  'circuit-rlc': {
+    type: 'circuit',
+    elements: [
+      { id: 'gnd', type: 'ground', x: 0, y: 100, x2: 0, y2: 100 },
+      { id: 'vsrc', type: 'voltage', x: 0, y: 100, x2: 0, y2: 0, maxVoltage: 5.0, waveform: 'SQUARE', frequency: 50 },
+      { id: 'r1', type: 'resistor', x: 0, y: 0, x2: 100, y2: 0, resistance: 50 },
+      { id: 'l1', type: 'inductor', x: 100, y: 0, x2: 200, y2: 0, inductance: 0.1, seriesResistance: 0.1 },
+      { id: 'c1', type: 'capacitor', x: 200, y: 0, x2: 200, y2: 100, capacitance: 1e-5, esr: 0.1 },
+      { id: 'w1', type: 'wire', x: 200, y: 100, x2: 0, y2: 100 }
+    ]
+  },
+  'circuit-switch': {
+    type: 'circuit',
+    elements: [
+      { id: 'gnd', type: 'ground', x: 0, y: 100, x2: 0, y2: 100 },
+      { id: 'vsrc', type: 'voltage', x: 0, y: 100, x2: 0, y2: 0, maxVoltage: 5.0, waveform: 'DC' },
+      { id: 'sw1', type: 'switch', x: 0, y: 0, x2: 100, y2: 0, closed: true },
+      { id: 'r1', type: 'resistor', x: 100, y: 0, x2: 200, y2: 0, resistance: 1000 },
+      { id: 'c1', type: 'capacitor', x: 200, y: 0, x2: 200, y2: 100, capacitance: 1e-6, esr: 0.1 },
+      { id: 'w1', type: 'wire', x: 200, y: 100, x2: 0, y2: 100 }
+    ]
   }
 };
 
@@ -612,6 +646,9 @@ let gravityDiagram: GravityDiagram;
 let thermoDiagram: ThermoDiagram;
 let emDiagram: EmDiagram;
 let selectedChargeId: string | null = null;
+let circuitEngine: Circuit;
+let lastCircuitSwitchToggleTime = 0;
+let circuitHistory: { t: number; voltages: number[] }[] = [];
 
 // DOM Elements
 const selectPreset = document.getElementById('select-preset') as HTMLSelectElement;
@@ -652,6 +689,7 @@ function init() {
   gravityDiagram = new GravityDiagram(pc);
   thermoDiagram = new ThermoDiagram(pc);
   emDiagram = new EmDiagram(pc);
+  circuitEngine = new Circuit();
 
   // Load initial preset
   loadPreset('shm-horizontal');
@@ -1282,6 +1320,15 @@ function applyConfig(config: PhysicsConfig) {
     selectGraphMode.classList.remove('hidden');
     graphModule.mode = 'kinematics';
     selectGraphMode.value = 'kinematics';
+  } else if (config.type === 'circuit') {
+    deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+    circuitEngine.reset();
+    circuitHistory = [];
+    lastCircuitSwitchToggleTime = 0;
+    
+    graphCard.classList.remove('hidden');
+    selectGraphMode.classList.add('hidden');
+    graphTitle.innerText = 'Real-Time Graph: CIRCUIT NODE VOLTAGES';
   }
 
   // Generate controls UI
@@ -1313,6 +1360,9 @@ function updateTitles(config: PhysicsConfig) {
   } else if (config.type === 'em') {
     canvasTitle.innerText = 'Lorentz Force & Magnetic Deflections';
     graphTitle.innerText = `Real-Time Graph: ${graphModule.mode.replace(/-/g, ' ').toUpperCase()}`;
+  } else if (config.type === 'circuit') {
+    canvasTitle.innerText = 'Circuits Engine: Transient Solver';
+    graphTitle.innerText = 'Real-Time Graph: CIRCUIT NODE VOLTAGES';
   }
 }
 
@@ -1906,6 +1956,46 @@ function renderSliders(config: PhysicsConfig) {
     actionBtnContainer.appendChild(fireBtn);
     actionBtnContainer.appendChild(resetBtn);
     dynamicSliders.appendChild(actionBtnContainer);
+  } else if (config.type === 'circuit') {
+    const r1 = config.elements.find(e => e.id === 'r1');
+    if (r1) {
+      addSlider('Resistance R1 (Ω)', 10, 5000, 10, r1.resistance, (v) => {
+        r1.resistance = v;
+        deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+        circuitEngine.analyzeCircuit();
+      });
+    }
+    const c1 = config.elements.find(e => e.id === 'c1');
+    if (c1) {
+      addSlider('Capacitance C1 (μF)', 0.1, 100, 0.1, c1.capacitance * 1e6, (v) => {
+        c1.capacitance = v * 1e-6;
+        deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+        circuitEngine.analyzeCircuit();
+      });
+    }
+    const l1 = config.elements.find(e => e.id === 'l1');
+    if (l1) {
+      addSlider('Inductance L1 (mH)', 1, 1000, 1, l1.inductance * 1e3, (v) => {
+        l1.inductance = v * 1e-3;
+        deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+        circuitEngine.analyzeCircuit();
+      });
+    }
+    const vsrc = config.elements.find(e => e.id === 'vsrc');
+    if (vsrc) {
+      addSlider('Source Voltage (V)', 0.5, 15, 0.5, vsrc.maxVoltage, (v) => {
+        vsrc.maxVoltage = v;
+        deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+        circuitEngine.analyzeCircuit();
+      });
+      if (vsrc.waveform === 'SQUARE' || vsrc.waveform === 'AC') {
+        addSlider('Source Freq (Hz)', 10, 200, 5, vsrc.frequency, (v) => {
+          vsrc.frequency = v;
+          deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+          circuitEngine.analyzeCircuit();
+        });
+      }
+    }
   }
 }
 
@@ -2066,6 +2156,31 @@ function stepSimulation(dt: number) {
     thermoDiagram.step(dt);
   } else if (activeConfig.type === 'em') {
     emDiagram.step(dt);
+  } else if (activeConfig.type === 'circuit') {
+    const steps = Math.min(100, Math.ceil(dt / circuitEngine.maxTimeStep));
+    for (let i = 0; i < steps; i++) {
+      const success = circuitEngine.runStep(true);
+      if (!success) break;
+    }
+    circuitHistory.push({
+      t: circuitEngine.t,
+      voltages: Array.from(circuitEngine.nodeVoltages)
+    });
+    if (circuitHistory.length > 500) {
+      circuitHistory.shift();
+    }
+    if (selectPreset.value === 'circuit-switch') {
+      const elapsed = circuitEngine.t;
+      if (elapsed - lastCircuitSwitchToggleTime >= 1.0) {
+        const sw = circuitEngine.elements.find(e => e.type === 'switch');
+        if (sw) {
+          (sw as any).toggle();
+          circuitEngine.analyzeCircuit();
+          console.log(`[Switch Toggled] Switch is now ${ (sw as any).closed ? 'CLOSED' : 'OPEN' } at t = ${elapsed.toFixed(3)}s`);
+        }
+        lastCircuitSwitchToggleTime = elapsed;
+      }
+    }
   }
 }
 
@@ -2101,7 +2216,293 @@ function drawActiveSimulation() {
         "Adjust launch parameters and click 'Fire Particle' to observe Lorentz force deflections."
       );
     }
+  } else if (activeConfig.type === 'circuit') {
+    drawCircuitTelemetry();
+    graphModule.drawCircuit(circuitHistory);
   }
+}
+
+function drawCircuitTelemetry() {
+  const ctx = pc.ctx;
+  const w = pc.canvas.clientWidth;
+  const h = pc.canvas.clientHeight;
+
+  const isDark = pc.theme === 'dark';
+  const bgColor1 = isDark ? '#0b0f19' : '#f8fafc';
+  const bgColor2 = isDark ? '#111827' : '#f1f5f9';
+  const cardColor = isDark ? 'rgba(31, 41, 55, 0.7)' : 'rgba(255, 255, 255, 0.9)';
+  const textColor = isDark ? '#f3f4f6' : '#1e293b';
+  const subTextColor = isDark ? '#9ca3af' : '#64748b';
+  const borderColor = isDark ? '#374151' : '#cbd5e1';
+  const accentColor = '#3b82f6';
+
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, bgColor1);
+  grad.addColorStop(1, bgColor2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)';
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+  for (let x = 0; x < w; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  for (let y = 0; y < h; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  ctx.save();
+  ctx.fillStyle = textColor;
+  ctx.font = 'bold 16px Outfit, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Circuits Engine Transient Solver', 25, 35);
+  ctx.font = '11px Outfit, sans-serif';
+  ctx.fillStyle = subTextColor;
+  ctx.fillText(`Transient Step: ${circuitEngine.timeStep.toExponential(2)}s | Sim Time: ${circuitEngine.t.toFixed(4)}s`, 25, 55);
+
+  const badgeX = w - 160;
+  const badgeY = 20;
+  const badgeW = 135;
+  const badgeH = 26;
+  ctx.fillStyle = circuitEngine.stopMessage ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+  ctx.strokeStyle = circuitEngine.stopMessage ? '#ef4444' : '#10b981';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = circuitEngine.stopMessage ? '#ef4444' : '#10b981';
+  ctx.font = 'bold 11px Outfit, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(
+    circuitEngine.stopMessage ? 'SIM OVERLOAD' : 'SIMULATION RUNNING',
+    badgeX + badgeW / 2,
+    badgeY + badgeH / 2
+  );
+  ctx.restore();
+
+  const leftX = 25;
+  const leftY = 80;
+  const leftW = w / 2 - 40;
+  const leftH = h - leftY - 30;
+
+  ctx.save();
+  ctx.fillStyle = cardColor;
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(leftX, leftY, leftW, leftH, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = accentColor;
+  ctx.font = 'bold 12px Outfit, sans-serif';
+  ctx.fillText('MONITORED SCHEMATIC ELEMENTS', leftX + 15, leftY + 25);
+
+  ctx.fillStyle = textColor;
+  ctx.font = '10px Courier New, monospace';
+  ctx.textAlign = 'left';
+
+  let rowY = leftY + 50;
+  const lineSpacing = 18;
+
+  ctx.fillText(
+    'ID      TYPE        V(diff)    CURRENT     POWER/ENERGY',
+    leftX + 15,
+    rowY
+  );
+  ctx.strokeStyle = borderColor;
+  ctx.beginPath();
+  ctx.moveTo(leftX + 15, rowY + 6);
+  ctx.lineTo(leftX + leftW - 15, rowY + 6);
+  ctx.stroke();
+  rowY += lineSpacing + 4;
+
+  for (const elm of circuitEngine.elements) {
+    if (rowY > leftY + leftH - 30) break;
+
+    const idStr = elm.id.padEnd(7);
+    const typeStr = elm.type.toUpperCase().padEnd(11);
+    
+    const vdiff = elm.getVoltageDiff();
+    const current = elm.getCurrent();
+    
+    let suffix = '';
+    if (elm.type === 'resistor') {
+      const p = Math.abs(vdiff * current);
+      suffix = `${p.toFixed(3)}W`;
+    } else if (elm.type === 'capacitor') {
+      const c = (elm as any).capacitance;
+      const energy = 0.5 * c * vdiff * vdiff;
+      suffix = `${(energy * 1e6).toFixed(2)}μJ`;
+    } else if (elm.type === 'inductor') {
+      const l = (elm as any).inductance;
+      const energy = 0.5 * l * current * current;
+      suffix = `${(energy * 1e3).toFixed(2)}mJ`;
+    } else if (elm.type === 'switch') {
+      suffix = (elm as any).closed ? 'CLOSED' : 'OPEN';
+    } else if (elm.type === 'voltage') {
+      const p = vdiff * current;
+      suffix = `${p.toFixed(3)}W`;
+    }
+
+    const vStr = `${vdiff.toFixed(2)}V`.padStart(7);
+    const iStr = `${(current * 1e3).toFixed(2)}mA`.padStart(9);
+    const suffixStr = suffix.padStart(12);
+
+    ctx.fillStyle = textColor;
+    ctx.fillText(
+      `${idStr} ${typeStr} ${vStr}  ${iStr}  ${suffixStr}`,
+      leftX + 15,
+      rowY
+    );
+    rowY += lineSpacing;
+  }
+  ctx.restore();
+
+  const rightX = w / 2 + 10;
+  const rightY = 80;
+  const rightW = w / 2 - 35;
+  const rightH = h - rightY - 30;
+
+  ctx.save();
+  ctx.fillStyle = cardColor;
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(rightX, rightY, rightW, rightH, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = accentColor;
+  ctx.font = 'bold 12px Outfit, sans-serif';
+  ctx.fillText('MNA SOLVER MATRIX INSPECTOR [A · x = b]', rightX + 15, rightY + 25);
+
+  const N = circuitEngine.circuitMatrixSize;
+  const mSize = circuitEngine.circuitMatrixSize;
+
+  if (mSize === 0) {
+    ctx.fillStyle = subTextColor;
+    ctx.font = 'italic 11px Outfit, sans-serif';
+    ctx.fillText('No active matrix equations solved.', rightX + 15, rightY + 60);
+    ctx.restore();
+    return;
+  }
+
+  ctx.fillStyle = textColor;
+  ctx.font = '10px Outfit, sans-serif';
+  ctx.fillText(`Matrix Dimensions: ${N}x${N} | Sub-iterations: ${circuitEngine.subIterations}`, rightX + 15, rightY + 45);
+
+  const cellW = Math.min(50, (rightW - 140) / N);
+  const cellH = Math.min(22, (rightH - 120) / N);
+
+  ctx.font = '9px Courier New, monospace';
+  ctx.textAlign = 'center';
+
+  let startMatrixY = rightY + 75;
+
+  for (let r = 0; r < N; r++) {
+    const ry = startMatrixY + r * cellH;
+    for (let c = 0; c < N; c++) {
+      const val = circuitEngine.circuitMatrix[r * mSize + c];
+      const cx = rightX + 25 + c * cellW;
+      
+      if (Math.abs(val) > 1e-9) {
+        ctx.fillStyle = isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.08)';
+        ctx.fillRect(cx - cellW / 2, ry - cellH / 2 + 2, cellW, cellH);
+      }
+
+      ctx.fillStyle = Math.abs(val) > 1e-9 ? textColor : subTextColor;
+      ctx.fillText(
+        Math.abs(val) > 1e-9 ? val.toFixed(3) : '0',
+        cx,
+        ry + cellH / 2
+      );
+    }
+
+    const vx = rightX + 25 + N * cellW + 18;
+    ctx.fillStyle = '#f59e0b';
+    let varName = `v_${r + 1}`;
+    if (r >= circuitEngine.nodeList.length - 1) {
+      const vsIdx = r - (circuitEngine.nodeList.length - 1);
+      const vsElm = circuitEngine.voltageSources[vsIdx];
+      varName = `i_${vsElm ? vsElm.id : vsIdx}`;
+    }
+    ctx.fillText(varName, vx, ry + cellH / 2);
+
+    const eqx = vx + 15;
+    ctx.fillStyle = textColor;
+    ctx.fillText('=', eqx, ry + cellH / 2);
+
+    const bx = eqx + 18;
+    ctx.fillStyle = '#10b981';
+    const rhsVal = circuitEngine.circuitRightSide[r];
+    ctx.fillText(rhsVal.toFixed(3), bx, ry + cellH / 2);
+  }
+
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 1.5;
+  const matLeft = rightX + 15;
+  const matRight = rightX + 15 + N * cellW;
+  const matTop = startMatrixY - cellH / 2 + 5;
+  const matBottom = startMatrixY + (N - 1) * cellH + cellH / 2 + 2;
+
+  ctx.beginPath();
+  ctx.moveTo(matLeft + 6, matTop);
+  ctx.lineTo(matLeft, matTop);
+  ctx.lineTo(matLeft, matBottom);
+  ctx.lineTo(matLeft + 6, matBottom);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(matRight - 6, matTop);
+  ctx.lineTo(matRight, matTop);
+  ctx.lineTo(matRight, matBottom);
+  ctx.lineTo(matRight - 6, matBottom);
+  ctx.stroke();
+
+  const xLeft = rightX + 25 + N * cellW + 10;
+  const xRight = xLeft + 16;
+  ctx.beginPath();
+  ctx.moveTo(xLeft + 4, matTop);
+  ctx.lineTo(xLeft, matTop);
+  ctx.lineTo(xLeft, matBottom);
+  ctx.lineTo(xLeft + 4, matBottom);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(xRight - 4, matTop);
+  ctx.lineTo(xRight, matTop);
+  ctx.lineTo(xRight, matBottom);
+  ctx.lineTo(xRight - 4, matBottom);
+  ctx.stroke();
+
+  const bLeft = xRight + 20;
+  const bRight = bLeft + 32;
+  ctx.beginPath();
+  ctx.moveTo(bLeft + 4, matTop);
+  ctx.lineTo(bLeft, matTop);
+  ctx.lineTo(bLeft, matBottom);
+  ctx.lineTo(bLeft + 4, matBottom);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(bRight - 4, matTop);
+  ctx.lineTo(bRight, matTop);
+  ctx.lineTo(bRight, matBottom);
+  ctx.lineTo(bRight - 4, matBottom);
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 // --- Update Status Bar Info ---
@@ -2403,6 +2804,20 @@ function updateStatusBar() {
       statusExtra3.querySelector('.status-label')!.innerHTML = 'Telemetry:';
       statusExtra3.querySelector('.status-value')!.innerHTML = selCharge ? `(${selCharge.x.toFixed(1)}m, ${selCharge.y.toFixed(1)}m)` : 'Click to select';
     }
+  } else if (activeConfig.type === 'circuit') {
+    statusTime.innerText = `${circuitEngine.t.toFixed(4)}s`;
+
+    statusExtra1.classList.remove('hidden');
+    statusExtra1.querySelector('.status-label')!.innerHTML = 'Convergence:';
+    statusExtra1.querySelector('.status-value')!.innerHTML = circuitEngine.converged ? 'YES' : 'NO';
+
+    statusExtra2.classList.remove('hidden');
+    statusExtra2.querySelector('.status-label')!.innerHTML = 'Iterations:';
+    statusExtra2.querySelector('.status-value')!.innerHTML = `${circuitEngine.subIterations}`;
+
+    statusExtra3.classList.remove('hidden');
+    statusExtra3.querySelector('.status-label')!.innerHTML = 'Node Count:';
+    statusExtra3.querySelector('.status-value')!.innerHTML = `${circuitEngine.nodeList.length}`;
   }
 }
 
