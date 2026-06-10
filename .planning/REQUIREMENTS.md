@@ -8,9 +8,9 @@
 ### Electrostatics Sandbox
 
 - [x] **EM-01**: User can add, select, and drag positive ($+q$) and negative ($-q$) point charges on the canvas.
-- [ ] **EM-02**: Sandbox displays vector arrows on a grid representing electric field intensity and direction at discrete points.
-- [ ] **EM-03**: Sandbox displays field lines originating from positive charges and terminating on negative charges or extending to infinity.
-- [ ] **EM-04**: Sandbox renders equipotential curves as smooth isolines representing constant electric potential.
+- [x] **EM-02**: Sandbox displays vector arrows on a grid representing electric field intensity and direction at discrete points.
+- [x] **EM-03**: Sandbox displays field lines originating from positive charges and terminating on negative charges or extending to infinity.
+- [x] **EM-04**: Sandbox renders equipotential curves as smooth isolines representing constant electric potential.
 
 ### Lorentz Deflection Tracer
 
@@ -39,9 +39,9 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | EM-01 | Phase 1 | Complete |
-| EM-02 | Phase 1 | Pending |
-| EM-03 | Phase 1 | Pending |
-| EM-04 | Phase 1 | Pending |
+| EM-02 | Phase 1 | Complete |
+| EM-03 | Phase 1 | Complete |
+| EM-04 | Phase 1 | Complete |
 | EM-05 | Phase 2 | Pending |
 | EM-06 | Phase 2 | Pending |
 | EM-07 | Phase 3 | Pending |
