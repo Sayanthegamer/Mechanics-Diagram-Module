@@ -1,4 +1,4 @@
-import { ICircuit, ICircuitElement } from './types';
+import type { ICircuit, ICircuitElement } from './types';
 import {
   ResistorElement,
   CapacitorElement,
