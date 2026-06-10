@@ -66,7 +66,10 @@ if (!context) throw new Error('Could not get 2D context');
 - Implement a `.setConfig()` setter to dynamically update parameters.
 - Provide a `.step(dt)` method for updating position/velocity values.
 - Provide a `.draw()` method for executing rendering workflows.
-- Accumulate state histories in a `.history` array to stream metrics to the graph card.
+- Expose physical state variables (`x`, `v`, `t`, `a`) as public members of the class.
+- Expose a `.history` array containing a state interface (e.g., `FbdState` or `ShmState`) to stream metrics to the graph card.
+- Set a `.maxHistory` bound of `500` to prevent excessive memory retention.
+- Use explicit trigonometric radian conversions (`Math.PI / 180`) when interfacing with degree angles from UI configurations.
 
 ---
 
