@@ -63,6 +63,104 @@ export class EmDiagram {
     return { ex, ey };
   }
 
+  private drawEquipotentials(canvas: PhysicsCanvas): void {
+    const width = canvas.canvas.clientWidth;
+    const height = canvas.canvas.clientHeight;
+    const ctx = canvas.ctx;
+
+    // 1. Grid parameters
+    const cellSize = 15; // pixels
+    const cols = Math.ceil(width / cellSize);
+    const rows = Math.ceil(height / cellSize);
+
+    // 2. Precompute potential grid
+    const grid: number[][] = [];
+    for (let c = 0; c <= cols; c++) {
+      grid[c] = [];
+      for (let r = 0; r <= rows; r++) {
+        const phys = canvas.toPhysics(c * cellSize, r * cellSize);
+        grid[c][r] = this.getPotentialAt(phys.x, phys.y);
+      }
+    }
+
+    // 3. Define target potential values to trace
+    const V_targets = [
+      -150, -100, -70, -50, -40, -30, -20, -15, -10, -5, -2,
+      2, 5, 10, 15, 20, 30, 40, 50, 70, 100, 150
+    ];
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(20, 184, 166, 0.4)'; // Teal/green semi-transparent contours
+    ctx.lineWidth = 1.0;
+
+    const lerp = (xa: number, ya: number, xb: number, yb: number, va: number, vb: number, target: number) => {
+      if (Math.abs(vb - va) < 1e-6) return { x: xa, y: ya };
+      const t = (target - va) / (vb - va);
+      return { x: xa + t * (xb - xa), y: ya + t * (yb - ya) };
+    };
+
+    // 4. Marching Squares algorithm cell-by-cell
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const v_tl = grid[c][r];
+        const v_tr = grid[c + 1][r];
+        const v_br = grid[c + 1][r + 1];
+        const v_bl = grid[c][r + 1];
+
+        const minV = Math.min(v_tl, v_tr, v_br, v_bl);
+        const maxV = Math.max(v_tl, v_tr, v_br, v_bl);
+
+        const x0 = c * cellSize;
+        const y0 = r * cellSize;
+        const x1 = (c + 1) * cellSize;
+        const y1 = (r + 1) * cellSize;
+
+        for (const V_target of V_targets) {
+          // Optimization: check if contour target is within the range of cell corners
+          if (V_target < minV || V_target > maxV) continue;
+
+          const t_tl = v_tl >= V_target;
+          const t_tr = v_tr >= V_target;
+          const t_br = v_br >= V_target;
+          const t_bl = v_bl >= V_target;
+
+          const points: { x: number; y: number }[] = [];
+
+          if (t_tl !== t_tr) points.push(lerp(x0, y0, x1, y0, v_tl, v_tr, V_target));
+          if (t_tr !== t_br) points.push(lerp(x1, y0, x1, y1, v_tr, v_br, V_target));
+          if (t_bl !== t_br) points.push(lerp(x0, y1, x1, y1, v_bl, v_br, V_target));
+          if (t_tl !== t_bl) points.push(lerp(x0, y0, x0, y1, v_tl, v_bl, V_target));
+
+          if (points.length === 2) {
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            ctx.lineTo(points[1].x, points[1].y);
+            ctx.stroke();
+          } else if (points.length === 4) {
+            const v_center = (v_tl + v_tr + v_br + v_bl) / 4;
+            ctx.beginPath();
+            if (v_center >= V_target) {
+              // Connect Top (0) to Left (3), and Right (1) to Bottom (2)
+              ctx.moveTo(points[0].x, points[0].y);
+              ctx.lineTo(points[3].x, points[3].y);
+              ctx.moveTo(points[1].x, points[1].y);
+              ctx.lineTo(points[2].x, points[2].y);
+            } else {
+              // Connect Top (0) to Right (1), and Bottom (2) to Left (3)
+              ctx.moveTo(points[0].x, points[0].y);
+              ctx.lineTo(points[1].x, points[1].y);
+              ctx.moveTo(points[2].x, points[2].y);
+              ctx.lineTo(points[3].x, points[3].y);
+            }
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
   private drawFieldGrid(canvas: PhysicsCanvas): void {
     const width = canvas.canvas.clientWidth;
     const height = canvas.canvas.clientHeight;
@@ -250,6 +348,9 @@ export class EmDiagram {
     canvas.clear();
     canvas.resetOrigin();
     canvas.drawGrid(1);
+
+    // Draw equipotential isolines in the background
+    this.drawEquipotentials(canvas);
 
     // Draw electric field vector grid
     this.drawFieldGrid(canvas);
