@@ -43,8 +43,9 @@
   2. Canvas renders a dynamic vector grid representing electric field vectors E.
   3. Canvas draws smooth field lines originating from positive and terminating on negative charges.
   4. Canvas draws equipotential contours representing constant electric potentials V.
-**Plans**: 1 plan
-- [ ] 06-01: Implement interactive electrostatics sandbox and field renderer
+**Plans**: 2 plans
+- [ ] 06-01-PLAN.md — Configure types, integrate EmDiagram core, build charge interaction UI & custom controls
+- [ ] 06-02-PLAN.md — Implement field vector grids, RK2 integration, and equipotential contouring
 
 ### Phase 7: Lorentz Force & Magnetic Deflections
 **Goal**: Extend `EmDiagram.ts` to include uniform magnetic fields, particle guns, and trace rendering under Lorentz force kinematics.
