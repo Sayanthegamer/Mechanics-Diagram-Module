@@ -651,7 +651,17 @@ let selectedChargeId: string | null = null;
 let circuitEngine: Circuit;
 let circuitDiagram: CircuitDiagram;
 let lastCircuitSwitchToggleTime = 0;
-let circuitHistory: { t: number; voltages: number[] }[] = [];
+let circuitHistory: {
+  t: number;
+  voltages: number[];
+  elementStates?: {
+    id: string;
+    volts: number[];
+    current: number;
+    voltageDiff: number;
+    power: number;
+  }[];
+}[] = [];
 
 
 // DOM Elements
@@ -997,7 +1007,7 @@ function handleInteractionStart(clientX: number, clientY: number) {
         }
         circuitEngine.analyzeCircuit();
         codeEditor.value = JSON.stringify(activeConfig, null, 2);
-      } else if (['resistor', 'capacitor', 'inductor', 'voltage'].includes(closestElm.type)) {
+      } else if (['resistor', 'capacitor', 'inductor', 'voltage', 'wire'].includes(closestElm.type)) {
         circuitDiagram.selectedElementId = closestElm.id;
         renderSliders(activeConfig);
       } else {
@@ -2248,7 +2258,8 @@ function stepSimulation(dt: number) {
     }
     circuitHistory.push({
       t: circuitEngine.t,
-      voltages: Array.from(circuitEngine.nodeVoltages)
+      voltages: Array.from(circuitEngine.nodeVoltages),
+      elementStates: circuitEngine.getState().elementStates
     });
     if (circuitHistory.length > 500) {
       circuitHistory.shift();
@@ -2303,7 +2314,7 @@ function drawActiveSimulation() {
   } else if (activeConfig.type === 'circuit') {
     drawCircuitTelemetry();
     circuitDiagram.draw(circuitEngine, circuitDiagram.selectedElementId, circuitDiagram.hoveredElementId, circuitDiagram.hoveredNode);
-    graphModule.drawCircuit(circuitHistory);
+    graphModule.drawCircuit(circuitHistory, circuitDiagram.selectedElementId, selectPreset.value);
   }
 }
 
