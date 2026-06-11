@@ -2487,7 +2487,7 @@ function drawCircuitTelemetry() {
   ctx.font = '10px Outfit, sans-serif';
   ctx.fillText(`Matrix Dimensions: ${N}x${N} | Sub-iterations: ${circuitEngine.subIterations}`, rightX + 15, rightY + 45);
 
-  const cellW = Math.min(50, (rightW - 140) / N);
+  const cellW = Math.min(50, (rightW - 150) / N);
   const cellH = Math.min(22, (rightH - 120) / N);
 
   ctx.font = '9px Courier New, monospace';
@@ -2495,11 +2495,23 @@ function drawCircuitTelemetry() {
 
   let startMatrixY = rightY + 75;
 
+  const matLeft = rightX + 20;
+  const matRight = matLeft + N * cellW;
+  const xLeft = matRight + 20;
+  const xW = 36;
+  const xRight = xLeft + xW;
+  const vx = xLeft + xW / 2;
+  const eqx = xRight + 12;
+  const bLeft = eqx + 12;
+  const bW = 36;
+  const bRight = bLeft + bW;
+  const bx = bLeft + bW / 2;
+
   for (let r = 0; r < N; r++) {
     const ry = startMatrixY + r * cellH;
     for (let c = 0; c < N; c++) {
       const val = circuitEngine.circuitMatrix[r * mSize + c];
-      const cx = rightX + 25 + c * cellW;
+      const cx = matLeft + (c + 0.5) * cellW;
       
       if (Math.abs(val) > 1e-9) {
         ctx.fillStyle = isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.08)';
@@ -2514,7 +2526,6 @@ function drawCircuitTelemetry() {
       );
     }
 
-    const vx = rightX + 25 + N * cellW + 18;
     ctx.fillStyle = '#f59e0b';
     let varName = `v_${r + 1}`;
     if (r >= circuitEngine.nodeList.length - 1) {
@@ -2524,11 +2535,9 @@ function drawCircuitTelemetry() {
     }
     ctx.fillText(varName, vx, ry + cellH / 2);
 
-    const eqx = vx + 15;
     ctx.fillStyle = textColor;
     ctx.fillText('=', eqx, ry + cellH / 2);
 
-    const bx = eqx + 18;
     ctx.fillStyle = '#10b981';
     const rhsVal = circuitEngine.circuitRightSide[r];
     ctx.fillText(rhsVal.toFixed(3), bx, ry + cellH / 2);
@@ -2536,8 +2545,6 @@ function drawCircuitTelemetry() {
 
   ctx.strokeStyle = borderColor;
   ctx.lineWidth = 1.5;
-  const matLeft = rightX + 15;
-  const matRight = rightX + 15 + N * cellW;
   const matTop = startMatrixY - cellH / 2 + 5;
   const matBottom = startMatrixY + (N - 1) * cellH + cellH / 2 + 2;
 
@@ -2555,8 +2562,6 @@ function drawCircuitTelemetry() {
   ctx.lineTo(matRight - 6, matBottom);
   ctx.stroke();
 
-  const xLeft = rightX + 25 + N * cellW + 10;
-  const xRight = xLeft + 16;
   ctx.beginPath();
   ctx.moveTo(xLeft + 4, matTop);
   ctx.lineTo(xLeft, matTop);
@@ -2571,8 +2576,6 @@ function drawCircuitTelemetry() {
   ctx.lineTo(xRight - 4, matBottom);
   ctx.stroke();
 
-  const bLeft = xRight + 20;
-  const bRight = bLeft + 32;
   ctx.beginPath();
   ctx.moveTo(bLeft + 4, matTop);
   ctx.lineTo(bLeft, matTop);
