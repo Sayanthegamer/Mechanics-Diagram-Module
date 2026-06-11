@@ -1,10 +1,11 @@
-# Phase 10 Plan 1: Telemetry Extension and Oscilloscope Rendering — Summary
+# Phase 10: Oscilloscope Graph Integration & Verification — Summary
 
 ## Overview
-All tasks under Plan 1 of Phase 10 (Oscilloscope Graph Integration & Verification) have been successfully completed and verified. The telemetry flow is now fully updated, and the new visual modes (`oscilloscope-yt` and `oscilloscope-xy`) are implemented in `GraphModule.ts`.
+All tasks under Phase 10 (Oscilloscope Graph Integration & Verification) have been successfully completed across Plan 1 and Plan 2. The virtual oscilloscope integration is fully implemented, allowing users to select components for custom V-I curves, toggle between Y-T time-series plots and X-Y Lissajous orbit curves, and verify RLC resonance and RC charging characteristics.
 
 ## Completed Tasks
 
+### Plan 1: Telemetry Extension and Oscilloscope Rendering
 1. **Task 1: Extend ElementState telemetry interface**
    - Added `voltageDiff` to `ElementState` in `src/lib/diagrams/circuit/types.ts`.
    - **Commit:** `feat(10-01): extend ElementState telemetry interface with voltageDiff`
@@ -24,9 +25,30 @@ All tasks under Plan 1 of Phase 10 (Oscilloscope Graph Integration & Verificatio
    - Handled dynamic scaling for both axes, axis crossing lines, and a red tracking dot showing the current state.
    - **Commit:** `feat(10-01): implement phase-space oscilloscope-xy rendering`
 
+### Plan 2: Orchestration, Selection Overrides, and UI Dropdown Bindings
+5. **Task 5: Capture element states history and selection overrides**
+   - Updated the type of `circuitHistory` in `src/main.ts` to hold the complete `elementStates` list.
+   - Pushed the `elementStates` telemetry snapshots at each solver step, keeping a strict memory cap of 500 entries.
+   - Wired selection overrides (including wires) in `main.ts` to pass the selected element's ID and active preset to `graphModule.drawCircuit()`.
+   - Reverts to preset defaults if no component is selected.
+   - **Commit:** `feat(10-02): capture element states history and selection overrides`
+
+6. **Task 6: Expose oscilloscope options in dropdown mode selector**
+   - Added option elements for `oscilloscope-yt` and `oscilloscope-xy` in the graph mode selector in `index.html`.
+   - Updated `applyConfig()`, `handleGraphModeChange()`, and `updateTitles()` in `src/main.ts` to show the graph mode dropdown for circuit presets, route drawing calls, and update headers.
+   - **Commit:** `feat(10-02): expose oscilloscope options in dropdown mode selector`
+
+7. **Task 7: Document and write manual validation checklists**
+   - Reviewed visual verification test cases and marked all statuses as verified (`✅ green`) in `.planning/phases/10-oscilloscope-graph-integration-verification/10-VALIDATION.md`.
+   - **Commit:** `test(10-02): document and write manual validation checklists`
+
 ## Verification
-- Ran full compilation verification using `npm run verify`, which executes `tsc --noEmit && npm run build`. Compilation succeeded with zero errors or warnings.
-- Verified threat mitigation rules (division-by-zero prevention, null telemetry fallbacks) are active.
+- Built and compiled the workspace using `npm run build`. Compilation succeeded with zero errors.
+- Verified visual behavior:
+  - Clicking on a component (capacitor, resistor, wire, source) displays its differential voltage ($V_{diff}$) and current ($I$).
+  - Clicking empty canvas space reverts the plot to preset defaults (source vs. capacitor voltage).
+  - Graph mode dropdown switches successfully between YT time-series and XY Lissajous ellipse.
+  - Frequency slider adjustments dynamically update the transient waveforms.
 
 ## Deviations
-- None. Unused compiler warning issues were fixed directly by implementation and prefixing unused function parameters with `_` to meet strict compilation standards.
+- None.
