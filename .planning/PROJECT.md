@@ -18,12 +18,13 @@ To deliver mathematically, physically, and geometrically accurate visual simulat
 - ✓ Gravity & Orbits (Keplerian sectors, barycentric two-body orbits, escape velocity launcher) — v4.0
 - ✓ Thermodynamics & Kinetic Theory (2D bi-disperse gas, piston engine isothermal/isobaric/isochoric/adiabatic processes, Carnot cycle, gas diffusion entropy) — v4.0
 - ✓ Real-time synchronized graphs (kinematics, energy conservation, phase-space orbits, PV diagrams, TS diagrams, Rayleigh speed histograms) — v4.0
+- ✓ Electrostatics sandbox supporting draggable point charges, dynamic Coulomb electric field vectors/lines, and equipotential curves — v5.0
+- ✓ Lorentz deflection tracer displaying trajectories of charged particles in uniform magnetic fields under Lorentz force kinematics — v5.0
+- ✓ Circuits solver engine calculating DC/AC currents and voltages in RLC networks with interactive switches — v5.0
+- ✓ Oscilloscope waveform plotter rendering voltage and current probe telemetry in real-time — v5.0
 
 ### Active
-- [ ] EM-01: Electrostatics sandbox supporting draggable point charges, dynamic Coulomb electric field vectors/lines, and equipotential curves.
-- [ ] EM-02: Lorentz deflection tracer displaying trajectories of charged particles in uniform magnetic fields under Lorentz force kinematics.
-- [ ] EM-03: Circuits solver engine calculating DC/AC currents and voltages in RLC networks with interactive switches.
-- [ ] EM-04: Oscilloscope waveform plotter rendering voltage and current probe telemetry in real-time.
+- None (All current milestone requirements completed)
 
 ### Out of Scope
 - AI explanations, tutors, or interactive chatbots inside the web UI — to keep client load minimal.
@@ -31,7 +32,7 @@ To deliver mathematically, physically, and geometrically accurate visual simulat
 - Server-side database, user logins, and cloud-saved custom layouts — offline-first static page.
 
 ## Context
-The project is built as a highly responsive single-page web app. It provides student/educator interactive controls via sidebars, dynamic code editor config overrides, and dual canvases. We are currently implementing Milestone v5.0 (Electromagnetism & Circuits) to expand coverage to Class 12th electromagnetism curricula.
+The project is built as a highly responsive single-page web app. It provides student/educator interactive controls via sidebars, dynamic code editor config overrides, and dual canvases. Milestone v5.0 (Electromagnetism & Circuits) is successfully completed and shipped.
 
 ## Constraints
 - **Tech Stack**: Vanilla TypeScript + Vite + Vanilla CSS. No frontend UI frameworks (React, Vue, Svelte) and no TailwindCSS to maintain complete dependency-free control.
