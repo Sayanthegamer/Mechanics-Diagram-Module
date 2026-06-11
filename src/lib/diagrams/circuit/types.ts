@@ -177,5 +177,6 @@ export interface ElementState {
   id: ElementId;
   volts: number[];
   current: number;
+  voltageDiff: number;
   power: number;
 }
