@@ -2327,10 +2327,11 @@ function drawCircuitTelemetry() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
+  // Draw background grid lines on the left half where the circuit schematic is rendered
   ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)';
   ctx.lineWidth = 1;
   const gridSize = 40;
-  for (let x = 0; x < w; x += gridSize) {
+  for (let x = 0; x < w / 2; x += gridSize) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, h);
@@ -2339,9 +2340,17 @@ function drawCircuitTelemetry() {
   for (let y = 0; y < h; y += gridSize) {
     ctx.beginPath();
     ctx.moveTo(0, y);
-    ctx.lineTo(w, y);
+    ctx.lineTo(w / 2, y);
     ctx.stroke();
   }
+
+  // Draw a subtle vertical divider down the center
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(w / 2, 0);
+  ctx.lineTo(w / 2, h);
+  ctx.stroke();
 
   ctx.save();
   ctx.fillStyle = textColor;
@@ -2352,7 +2361,7 @@ function drawCircuitTelemetry() {
   ctx.fillStyle = subTextColor;
   ctx.fillText(`Transient Step: ${circuitEngine.timeStep.toExponential(2)}s | Sim Time: ${circuitEngine.t.toFixed(4)}s`, 25, 55);
 
-  const badgeX = w - 160;
+  const badgeX = w / 2 - 160;
   const badgeY = 20;
   const badgeW = 135;
   const badgeH = 26;
@@ -2375,45 +2384,51 @@ function drawCircuitTelemetry() {
   );
   ctx.restore();
 
-  const leftX = 25;
-  const leftY = 80;
-  const leftW = w / 2 - 40;
-  const leftH = h - leftY - 30;
+  // Stacked telemetry cards on the right half
+  const rightX = w / 2 + 15;
+  const rightW = w / 2 - 35;
+  const availableHeight = h - 70 - 15;
+  const cardH = availableHeight / 2 - 5;
 
+  const leftY = 70;
+  const leftH = cardH;
+
+  // 1. Elements Telemetry Card
   ctx.save();
   ctx.fillStyle = cardColor;
   ctx.strokeStyle = borderColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.roundRect(leftX, leftY, leftW, leftH, 10);
+  ctx.roundRect(rightX, leftY, rightW, leftH, 10);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = accentColor;
-  ctx.font = 'bold 12px Outfit, sans-serif';
-  ctx.fillText('MONITORED SCHEMATIC ELEMENTS', leftX + 15, leftY + 25);
+  ctx.font = 'bold 11px Outfit, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('MONITORED SCHEMATIC ELEMENTS', rightX + 15, leftY + 18);
 
   ctx.fillStyle = textColor;
-  ctx.font = '10px Courier New, monospace';
+  ctx.font = '9px Courier New, monospace';
   ctx.textAlign = 'left';
 
-  let rowY = leftY + 50;
-  const lineSpacing = 18;
+  let rowY = leftY + 34;
+  const rowSpacing = Math.min(18, Math.max(12, (leftH - 40) / (circuitEngine.elements.length + 1)));
 
   ctx.fillText(
     'ID      TYPE        V(diff)    CURRENT     POWER/ENERGY',
-    leftX + 15,
+    rightX + 15,
     rowY
   );
   ctx.strokeStyle = borderColor;
   ctx.beginPath();
-  ctx.moveTo(leftX + 15, rowY + 6);
-  ctx.lineTo(leftX + leftW - 15, rowY + 6);
+  ctx.moveTo(rightX + 15, rowY + 4);
+  ctx.lineTo(rightX + rightW - 15, rowY + 4);
   ctx.stroke();
-  rowY += lineSpacing + 4;
+  rowY += rowSpacing;
 
   for (const elm of circuitEngine.elements) {
-    if (rowY > leftY + leftH - 30) break;
+    if (rowY > leftY + leftH - 10) break;
 
     const idStr = elm.id.padEnd(7);
     const typeStr = elm.type.toUpperCase().padEnd(11);
@@ -2447,17 +2462,16 @@ function drawCircuitTelemetry() {
     ctx.fillStyle = textColor;
     ctx.fillText(
       `${idStr} ${typeStr} ${vStr}  ${iStr}  ${suffixStr}`,
-      leftX + 15,
+      rightX + 15,
       rowY
     );
-    rowY += lineSpacing;
+    rowY += rowSpacing;
   }
   ctx.restore();
 
-  const rightX = w / 2 + 10;
-  const rightY = 80;
-  const rightW = w / 2 - 35;
-  const rightH = h - rightY - 30;
+  // 2. Matrix Solver Inspector Card
+  const rightY = leftY + leftH + 10;
+  const rightH = cardH;
 
   ctx.save();
   ctx.fillStyle = cardColor;
@@ -2469,8 +2483,8 @@ function drawCircuitTelemetry() {
   ctx.stroke();
 
   ctx.fillStyle = accentColor;
-  ctx.font = 'bold 12px Outfit, sans-serif';
-  ctx.fillText('MNA SOLVER MATRIX INSPECTOR [A · x = b]', rightX + 15, rightY + 25);
+  ctx.font = 'bold 11px Outfit, sans-serif';
+  ctx.fillText('MNA SOLVER MATRIX INSPECTOR [A · x = b]', rightX + 15, rightY + 18);
 
   const N = circuitEngine.circuitMatrixSize;
   const mSize = circuitEngine.circuitMatrixSize;
@@ -2478,22 +2492,22 @@ function drawCircuitTelemetry() {
   if (mSize === 0) {
     ctx.fillStyle = subTextColor;
     ctx.font = 'italic 11px Outfit, sans-serif';
-    ctx.fillText('No active matrix equations solved.', rightX + 15, rightY + 60);
+    ctx.fillText('No active matrix equations solved.', rightX + 15, rightY + 45);
     ctx.restore();
     return;
   }
 
   ctx.fillStyle = textColor;
-  ctx.font = '10px Outfit, sans-serif';
-  ctx.fillText(`Matrix Dimensions: ${N}x${N} | Sub-iterations: ${circuitEngine.subIterations}`, rightX + 15, rightY + 45);
+  ctx.font = '9px Outfit, sans-serif';
+  ctx.fillText(`Matrix Dimensions: ${N}x${N} | Sub-iterations: ${circuitEngine.subIterations}`, rightX + 15, rightY + 32);
 
   const cellW = Math.min(50, (rightW - 150) / N);
-  const cellH = Math.min(22, (rightH - 120) / N);
+  const cellH = Math.min(22, Math.max(12, (rightH - 60) / N));
 
   ctx.font = '9px Courier New, monospace';
   ctx.textAlign = 'center';
 
-  let startMatrixY = rightY + 75;
+  let startMatrixY = rightY + 46;
 
   const matLeft = rightX + 20;
   const matRight = matLeft + N * cellW;

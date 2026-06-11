@@ -45,7 +45,7 @@ export class CircuitDiagram {
     const circuitScale = 2.0 * (this.pc.scale / 50);
 
     return {
-      x: this.pc.originX + (x - cx) * circuitScale,
+      x: (this.pc.originX - this.pc.canvas.clientWidth / 4) + (x - cx) * circuitScale,
       y: this.pc.originY + (y - cy) * circuitScale
     };
   }
@@ -74,7 +74,7 @@ export class CircuitDiagram {
     const circuitScale = 2.0 * (this.pc.scale / 50);
 
     return {
-      x: cx + (sx - this.pc.originX) / circuitScale,
+      x: cx + (sx - (this.pc.originX - this.pc.canvas.clientWidth / 4)) / circuitScale,
       y: cy + (sy - this.pc.originY) / circuitScale
     };
   }
