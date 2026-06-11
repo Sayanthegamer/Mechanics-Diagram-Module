@@ -24,7 +24,7 @@
 
 ### Oscilloscope Plots
 
-- [ ] **EM-09**: GraphModule renders transient charging curves, AC phase shifts, and resonant waveforms from virtual voltage/current probes.
+- [x] **EM-09**: GraphModule renders transient charging curves, AC phase shifts, and resonant waveforms from virtual voltage/current probes.
 
 ## Out of Scope
 
@@ -38,15 +38,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EM-01 | Phase 1 | Complete |
-| EM-02 | Phase 1 | Complete |
-| EM-03 | Phase 1 | Complete |
-| EM-04 | Phase 1 | Complete |
-| EM-05 | Phase 2 | Complete |
-| EM-06 | Phase 2 | Complete |
+| EM-01 | Phase 6 | Complete |
+| EM-02 | Phase 6 | Complete |
+| EM-03 | Phase 6 | Complete |
+| EM-04 | Phase 6 | Complete |
+| EM-05 | Phase 7 | Complete |
+| EM-06 | Phase 7 | Complete |
 | EM-07 | Phase 8 | Complete |
 | EM-08 | Phase 9 | Complete |
-| EM-09 | Phase 5 | Pending |
+| EM-09 | Phase 10 | Complete |
 
 **Coverage:**
 
