@@ -110,7 +110,10 @@
   1. Secondary graph plots real-time voltage/current oscilloscope curves.
   2. Transient charging, resonance, and AC phase differences are visually verified.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+- [x] 10-01-PLAN.md — Types, solver, and dual-channel YT/XY rendering implementation
+- [x] 10-02-PLAN.md — Orchestrator, selection overrides, and UI dropdown integration
 
 ---
 
@@ -127,8 +130,8 @@
 | 7. Lorentz Force | v5.0 | 2/2 | Complete   | 2026-06-10 |
 | 8. Circuit Engine | v5.0 | 2/2 | Complete   | 2026-06-10 |
 | 9. Schematic UI | v5.0 | 2/2 | Complete | 2026-06-11 |
-| 10. Oscilloscope | v5.0 | 0/0 | Not started | - |
+| 10. Oscilloscope | v5.0 | 2/2 | Complete | 2026-06-11 |
 
 ---
 *Roadmap defined: 2026-06-10*
-*Last updated: 2026-06-10 after initialization*
+*Last updated: 2026-06-11 after Phase 10 completion*
