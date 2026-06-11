@@ -14,6 +14,8 @@ import { GraphModule } from './lib/diagrams/GraphModule';
 import type { GraphMode } from './lib/diagrams/GraphModule';
 import { Circuit } from './lib/diagrams/circuit/circuit';
 import { deserializeCircuit } from './lib/diagrams/circuit/serialization';
+import { CircuitDiagram } from './lib/diagrams/CircuitDiagram';
+
 
 // --- Preset Configurations ---
 const PRESETS: Record<string, PhysicsConfig> = {
@@ -647,8 +649,10 @@ let thermoDiagram: ThermoDiagram;
 let emDiagram: EmDiagram;
 let selectedChargeId: string | null = null;
 let circuitEngine: Circuit;
+let circuitDiagram: CircuitDiagram;
 let lastCircuitSwitchToggleTime = 0;
 let circuitHistory: { t: number; voltages: number[] }[] = [];
+
 
 // DOM Elements
 const selectPreset = document.getElementById('select-preset') as HTMLSelectElement;
@@ -690,6 +694,9 @@ function init() {
   thermoDiagram = new ThermoDiagram(pc);
   emDiagram = new EmDiagram(pc);
   circuitEngine = new Circuit();
+  circuitDiagram = new CircuitDiagram(pc);
+  circuitDiagram.setCircuit(circuitEngine);
+
 
   // Load initial preset
   loadPreset('shm-horizontal');
@@ -765,7 +772,22 @@ function cyclePreset(dir: number) {
 }
 
 // --- Direct Canvas Interaction & Drag Helpers ---
+function getDistanceToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const l2 = dx * dx + dy * dy;
+  if (l2 === 0) {
+    return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+  }
+  let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+  t = Math.max(0, Math.min(1, t));
+  const projX = x1 + t * dx;
+  const projY = y1 + t * dy;
+  return Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+}
+
 function handleInteractionStart(clientX: number, clientY: number) {
+
   if (isDragging) return;
 
   const rect = pc.canvas.getBoundingClientRect();
@@ -951,6 +973,44 @@ function handleInteractionStart(clientX: number, clientY: number) {
     }
     selectedChargeId = null;
     applyConfig(activeConfig);
+  } else if (activeConfig.type === 'circuit') {
+    // Perform hit testing on schematic components
+    let closestElm: any = null;
+    let minDistance = 15; // pixels threshold on screen
+
+    for (const elm of circuitEngine.elements) {
+      const p1 = circuitDiagram.toScreen(elm.x, elm.y);
+      const p2 = circuitDiagram.toScreen(elm.x2, elm.y2);
+      const dist = getDistanceToSegment(sx, sy, p1.x, p1.y, p2.x, p2.y);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestElm = elm;
+      }
+    }
+
+    if (closestElm) {
+      if (closestElm.type === 'switch') {
+        closestElm.toggle();
+        const configElm = activeConfig.elements.find(e => e.id === closestElm.id);
+        if (configElm) {
+          (configElm as any).closed = closestElm.closed;
+        }
+        circuitEngine.analyzeCircuit();
+        codeEditor.value = JSON.stringify(activeConfig, null, 2);
+      } else if (['resistor', 'capacitor', 'inductor', 'voltage'].includes(closestElm.type)) {
+        circuitDiagram.selectedElementId = closestElm.id;
+        renderSliders(activeConfig);
+      } else {
+        circuitDiagram.selectedElementId = null;
+        renderSliders(activeConfig);
+      }
+      drawActiveSimulation();
+      return; // Stop here, don't initiate panning!
+    } else {
+      circuitDiagram.selectedElementId = null;
+      renderSliders(activeConfig);
+      drawActiveSimulation();
+    }
   }
 
   // Viewport panning fallback if no interactive element is grabbed
@@ -961,6 +1021,7 @@ function handleInteractionStart(clientX: number, clientY: number) {
     lastPanY = clientY;
   }
 }
+
 
 function handleInteractionMove(clientX: number, clientY: number) {
   const rect = pc.canvas.getBoundingClientRect();
@@ -1227,6 +1288,10 @@ function loadPreset(name: string) {
   // Sync Select inputs
   selectPreset.value = name;
 
+  if (circuitDiagram) {
+    circuitDiagram.selectedElementId = null;
+  }
+
   // Reset viewport panning
   if (pc) {
     pc.panX = 0;
@@ -1236,6 +1301,7 @@ function loadPreset(name: string) {
 
   applyConfig(activeConfig);
 }
+
 
 // --- Apply Config to Active Diagrams ---
 function applyConfig(config: PhysicsConfig) {
@@ -1957,44 +2023,62 @@ function renderSliders(config: PhysicsConfig) {
     actionBtnContainer.appendChild(resetBtn);
     dynamicSliders.appendChild(actionBtnContainer);
   } else if (config.type === 'circuit') {
-    const r1 = config.elements.find(e => e.id === 'r1');
-    if (r1) {
-      addSlider('Resistance R1 (Ω)', 10, 5000, 10, r1.resistance, (v) => {
-        r1.resistance = v;
-        deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
-        circuitEngine.analyzeCircuit();
-      });
-    }
-    const c1 = config.elements.find(e => e.id === 'c1');
-    if (c1) {
-      addSlider('Capacitance C1 (μF)', 0.1, 100, 0.1, c1.capacitance * 1e6, (v) => {
-        c1.capacitance = v * 1e-6;
-        deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
-        circuitEngine.analyzeCircuit();
-      });
-    }
-    const l1 = config.elements.find(e => e.id === 'l1');
-    if (l1) {
-      addSlider('Inductance L1 (mH)', 1, 1000, 1, l1.inductance * 1e3, (v) => {
-        l1.inductance = v * 1e-3;
-        deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
-        circuitEngine.analyzeCircuit();
-      });
-    }
-    const vsrc = config.elements.find(e => e.id === 'vsrc');
-    if (vsrc) {
-      addSlider('Source Voltage (V)', 0.5, 15, 0.5, vsrc.maxVoltage, (v) => {
-        vsrc.maxVoltage = v;
-        deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
-        circuitEngine.analyzeCircuit();
-      });
-      if (vsrc.waveform === 'SQUARE' || vsrc.waveform === 'AC') {
-        addSlider('Source Freq (Hz)', 10, 200, 5, vsrc.frequency, (v) => {
-          vsrc.frequency = v;
-          deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
-          circuitEngine.analyzeCircuit();
-        });
+    if (circuitDiagram && circuitDiagram.selectedElementId) {
+      const selectedId = circuitDiagram.selectedElementId;
+      const elm = circuitEngine.elements.find(e => e.id === selectedId);
+      const configElm = config.elements.find(e => e.id === selectedId);
+      if (elm && configElm) {
+        const header = document.createElement('div');
+        header.style.fontWeight = 'bold';
+        header.style.fontSize = '12px';
+        header.style.color = '#a5b4fc';
+        header.style.marginBottom = '8px';
+        header.innerText = `Selected: ${elm.id.toUpperCase()} (${elm.type.toUpperCase()})`;
+        dynamicSliders.appendChild(header);
+
+        if (elm.type === 'resistor') {
+          addSlider('Resistance (Ω)', 10, 5000, 10, (configElm as any).resistance, (v) => {
+            (configElm as any).resistance = v;
+            deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+            circuitEngine.analyzeCircuit();
+          });
+        } else if (elm.type === 'capacitor') {
+          addSlider('Capacitance (μF)', 0.1, 100, 0.1, (configElm as any).capacitance * 1e6, (v) => {
+            (configElm as any).capacitance = v * 1e-6;
+            deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+            circuitEngine.analyzeCircuit();
+          });
+        } else if (elm.type === 'inductor') {
+          addSlider('Inductance (mH)', 1, 1000, 1, (configElm as any).inductance * 1e3, (v) => {
+            (configElm as any).inductance = v * 1e-3;
+            deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+            circuitEngine.analyzeCircuit();
+          });
+        } else if (elm.type === 'voltage') {
+          addSlider('Voltage Amplitude (V)', 0.5, 15, 0.5, (configElm as any).maxVoltage, (v) => {
+            (configElm as any).maxVoltage = v;
+            deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+            circuitEngine.analyzeCircuit();
+          });
+          if ((configElm as any).waveform === 'SQUARE' || (configElm as any).waveform === 'AC') {
+            addSlider('Frequency (Hz)', 10, 200, 5, (configElm as any).frequency, (v) => {
+              (configElm as any).frequency = v;
+              deserializeCircuit(circuitEngine, JSON.stringify({ elements: config.elements }));
+              circuitEngine.analyzeCircuit();
+            });
+          }
+        }
       }
+    } else {
+      const promptDiv = document.createElement('div');
+      promptDiv.style.padding = '12px';
+      promptDiv.style.border = '1px dashed #374151';
+      promptDiv.style.borderRadius = '6px';
+      promptDiv.style.fontSize = '12px';
+      promptDiv.style.color = '#9ca3af';
+      promptDiv.style.textAlign = 'center';
+      promptDiv.innerText = 'Click a component (resistor, capacitor, inductor, voltage source) on the canvas to configure its parameters.';
+      dynamicSliders.appendChild(promptDiv);
     }
   }
 }
@@ -2218,6 +2302,7 @@ function drawActiveSimulation() {
     }
   } else if (activeConfig.type === 'circuit') {
     drawCircuitTelemetry();
+    circuitDiagram.draw(circuitEngine, circuitDiagram.selectedElementId, circuitDiagram.hoveredElementId, circuitDiagram.hoveredNode);
     graphModule.drawCircuit(circuitHistory);
   }
 }
