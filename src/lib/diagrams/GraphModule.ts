@@ -3,7 +3,7 @@ import type { FbdState } from './FbdDiagram';
 import type { FluidsState } from './FluidsDiagram';
 import type { ThermoDiagram } from './ThermoDiagram';
 
-export type GraphMode = 'kinematics' | 'energy' | 'phase-space' | 'pv-diagram' | 'ts-diagram';
+export type GraphMode = 'kinematics' | 'energy' | 'phase-space' | 'pv-diagram' | 'ts-diagram' | 'oscilloscope-yt' | 'oscilloscope-xy';
 
 export interface EnergyStatePoint {
   t: number;
@@ -1247,7 +1247,30 @@ export class GraphModule {
     this.ctx.restore();
   }
 
-  public drawCircuit(history: { t: number; voltages: number[] }[]): void {
+  public drawCircuit(
+    history: {
+      t: number;
+      voltages: number[];
+      elementStates?: {
+        id: string;
+        volts: number[];
+        current: number;
+        voltageDiff: number;
+        power: number;
+      }[];
+    }[],
+    selectedElementId?: string | null,
+    presetName?: string
+  ): void {
+    if (this.mode === 'oscilloscope-yt') {
+      this.drawOscilloscopeYT(history, selectedElementId || null, presetName || '');
+      return;
+    }
+    if (this.mode === 'oscilloscope-xy') {
+      this.drawOscilloscopeXY(history, selectedElementId || null, presetName || '');
+      return;
+    }
+
     this.clear();
     if (history.length < 2) return;
 
@@ -1372,6 +1395,374 @@ export class GraphModule {
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(`Node ${nodeIdx + 1}`, legendX + 8, legendY);
     }
+
+    this.ctx.restore();
+  }
+
+  private getChannelValues(
+    pt: {
+      t: number;
+      voltages: number[];
+      elementStates?: {
+        id: string;
+        volts: number[];
+        current: number;
+        voltageDiff: number;
+        power: number;
+      }[];
+    },
+    selectedElementId: string | null,
+    _presetName: string
+  ) {
+    if (selectedElementId && pt.elementStates) {
+      const state = pt.elementStates.find(e => e.id === selectedElementId);
+      const valA = state ? state.voltageDiff : 0;
+      const valB = state ? state.current * 1000 : 0; // Convert to mA
+      return {
+        valA, labelA: `${selectedElementId.toUpperCase()} Volts`, unitA: 'V',
+        valB, labelB: `${selectedElementId.toUpperCase()} Current`, unitB: 'mA'
+      };
+    }
+
+    // Fallback defaults for presets
+    const vsrc = pt.elementStates?.find(e => e.id === 'vsrc');
+    const c1 = pt.elementStates?.find(e => e.id === 'c1');
+    return {
+      valA: vsrc ? vsrc.voltageDiff : 0, labelA: 'Source Voltage', unitA: 'V',
+      valB: c1 ? c1.voltageDiff : 0, labelB: 'Capacitor Voltage', unitB: 'V'
+    };
+  }
+
+  private drawOscilloscopeYT(
+    history: {
+      t: number;
+      voltages: number[];
+      elementStates?: {
+        id: string;
+        volts: number[];
+        current: number;
+        voltageDiff: number;
+        power: number;
+      }[];
+    }[],
+    selectedElementId: string | null,
+    presetName: string
+  ): void {
+    this.clear();
+    if (history.length < 2) return;
+
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+
+    const axisColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+    const gridColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+    const textColor = this.theme === 'dark' ? '#888' : '#666';
+
+    const padding = { top: 30, right: 20, bottom: 25, left: 45 };
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
+
+    let yMinA = Infinity;
+    let yMaxA = -Infinity;
+    let yMinB = Infinity;
+    let yMaxB = -Infinity;
+
+    history.forEach((pt) => {
+      const vals = this.getChannelValues(pt, selectedElementId, presetName);
+      yMinA = Math.min(yMinA, vals.valA);
+      yMaxA = Math.max(yMaxA, vals.valA);
+      yMinB = Math.min(yMinB, vals.valB);
+      yMaxB = Math.max(yMaxB, vals.valB);
+    });
+
+    if (yMinA === Infinity) { yMinA = -1; yMaxA = 1; }
+    if (yMinB === Infinity) { yMinB = -1; yMaxB = 1; }
+
+    let rangeA = yMaxA - yMinA;
+    if (rangeA < 0.01) {
+      yMinA -= 0.5;
+      yMaxA += 0.5;
+      rangeA = 1.0;
+    } else {
+      yMinA -= rangeA * 0.1;
+      yMaxA += rangeA * 0.1;
+      rangeA = yMaxA - yMinA;
+    }
+
+    let rangeB = yMaxB - yMinB;
+    if (rangeB < 0.01) {
+      yMinB -= 0.5;
+      yMaxB += 0.5;
+      rangeB = 1.0;
+    } else {
+      yMinB -= rangeB * 0.1;
+      yMaxB += rangeB * 0.1;
+      rangeB = yMaxB - yMinB;
+    }
+
+    const xMin = history[0].t;
+    const xMax = history[history.length - 1].t;
+    const xRange = xMax - xMin;
+
+    const getXScreen = (t: number) => {
+      return padding.left + ((t - xMin) / (xRange || 1)) * graphWidth;
+    };
+
+    const getYScreenA = (val: number) => {
+      return padding.top + (1.0 - (val - yMinA) / (rangeA || 1)) * graphHeight;
+    };
+
+    const getYScreenB = (val: number) => {
+      return padding.top + (1.0 - (val - yMinB) / (rangeB || 1)) * graphHeight;
+    };
+
+    this.ctx.save();
+
+    // 1. Draw Grid
+    this.ctx.strokeStyle = gridColor;
+    this.ctx.lineWidth = 1;
+
+    for (let i = 0; i <= 4; i++) {
+      const sy = padding.top + (i / 4) * graphHeight;
+      this.ctx.beginPath();
+      this.ctx.moveTo(padding.left, sy);
+      this.ctx.lineTo(width - padding.right, sy);
+      this.ctx.stroke();
+    }
+
+    for (let i = 0; i <= 4; i++) {
+      const sx = padding.left + (i / 4) * graphWidth;
+      this.ctx.beginPath();
+      this.ctx.moveTo(sx, padding.top);
+      this.ctx.lineTo(sx, height - padding.bottom);
+      this.ctx.stroke();
+
+      const valT = xMin + (i / 4) * xRange;
+      this.ctx.fillStyle = textColor;
+      this.ctx.font = '9px Outfit, sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'top';
+      this.ctx.fillText(`${valT.toFixed(3)}s`, sx, height - padding.bottom + 6);
+    }
+
+    // 2. Draw axes borders
+    this.ctx.strokeStyle = axisColor;
+    this.ctx.lineWidth = 1.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(padding.left, padding.top);
+    this.ctx.lineTo(padding.left, height - padding.bottom);
+    this.ctx.lineTo(width - padding.right, height - padding.bottom);
+    this.ctx.stroke();
+
+    // 3. Plot curves
+    const colorA = '#3b82f6';
+    const colorB = '#10b981';
+
+    // Channel A
+    this.ctx.beginPath();
+    this.ctx.strokeStyle = colorA;
+    this.ctx.lineWidth = 2;
+    history.forEach((pt, idx) => {
+      const sx = getXScreen(pt.t);
+      const vals = this.getChannelValues(pt, selectedElementId, presetName);
+      const sy = getYScreenA(vals.valA);
+      if (idx === 0) this.ctx.moveTo(sx, sy);
+      else this.ctx.lineTo(sx, sy);
+    });
+    this.ctx.stroke();
+
+    // Channel B
+    this.ctx.beginPath();
+    this.ctx.strokeStyle = colorB;
+    this.ctx.lineWidth = 2;
+    history.forEach((pt, idx) => {
+      const sx = getXScreen(pt.t);
+      const vals = this.getChannelValues(pt, selectedElementId, presetName);
+      const sy = getYScreenB(vals.valB);
+      if (idx === 0) this.ctx.moveTo(sx, sy);
+      else this.ctx.lineTo(sx, sy);
+    });
+    this.ctx.stroke();
+
+    // 4. Draw legends
+    const latestPt = history[history.length - 1];
+    const latestVals = this.getChannelValues(latestPt, selectedElementId, presetName);
+
+    const drawLegend = (label: string, value: number, unit: string, color: string, legendIdx: number) => {
+      const legendX = padding.left + legendIdx * 160;
+      const legendY = padding.top - 12;
+
+      this.ctx.fillStyle = color;
+      this.ctx.beginPath();
+      this.ctx.arc(legendX, legendY, 4, 0, 2 * Math.PI);
+      this.ctx.fill();
+
+      this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+      this.ctx.font = 'bold 10px Outfit, sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(`${label}: ${value.toFixed(2)}${unit}`, legendX + 8, legendY);
+    };
+
+    drawLegend(latestVals.labelA, latestVals.valA, latestVals.unitA, colorA, 0);
+    drawLegend(latestVals.labelB, latestVals.valB, latestVals.unitB, colorB, 1);
+
+    this.ctx.restore();
+  }
+
+  private drawOscilloscopeXY(
+    history: {
+      t: number;
+      voltages: number[];
+      elementStates?: {
+        id: string;
+        volts: number[];
+        current: number;
+        voltageDiff: number;
+        power: number;
+      }[];
+    }[],
+    selectedElementId: string | null,
+    presetName: string
+  ): void {
+    this.clear();
+    if (history.length < 2) return;
+
+    const width = this.canvas.clientWidth;
+    const height = this.canvas.clientHeight;
+
+    const axisColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+    const gridColor = this.theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
+    const padding = { top: 30, right: 20, bottom: 25, left: 45 };
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
+
+    // Restrict plotted history to the last 200 points
+    const windowPoints = history.slice(-200);
+
+    let xMin = Infinity;
+    let xMax = -Infinity;
+    let yMin = Infinity;
+    let yMax = -Infinity;
+
+    windowPoints.forEach((pt) => {
+      const vals = this.getChannelValues(pt, selectedElementId, presetName);
+      xMin = Math.min(xMin, vals.valA);
+      xMax = Math.max(xMax, vals.valA);
+      yMin = Math.min(yMin, vals.valB);
+      yMax = Math.max(yMax, vals.valB);
+    });
+
+    if (xMin === Infinity) { xMin = -1; xMax = 1; }
+    if (yMin === Infinity) { yMin = -1; yMax = 1; }
+
+    let rangeX = xMax - xMin;
+    if (rangeX < 0.01) {
+      xMin -= 0.5;
+      xMax += 0.5;
+      rangeX = 1.0;
+    } else {
+      xMin -= rangeX * 0.1;
+      xMax += rangeX * 0.1;
+      rangeX = xMax - xMin;
+    }
+
+    let rangeY = yMax - yMin;
+    if (rangeY < 0.01) {
+      yMin -= 0.5;
+      yMax += 0.5;
+      rangeY = 1.0;
+    } else {
+      yMin -= rangeY * 0.1;
+      yMax += rangeY * 0.1;
+      rangeY = yMax - yMin;
+    }
+
+    const getXScreen = (valA: number) => {
+      return padding.left + ((valA - xMin) / (rangeX || 1)) * graphWidth;
+    };
+
+    const getYScreen = (valB: number) => {
+      return padding.top + (1.0 - (valB - yMin) / (rangeY || 1)) * graphHeight;
+    };
+
+    this.ctx.save();
+
+    // 1. Draw Grid Lines
+    this.ctx.strokeStyle = gridColor;
+    this.ctx.lineWidth = 1;
+
+    for (let i = 0; i <= 4; i++) {
+      const sy = padding.top + (i / 4) * graphHeight;
+      this.ctx.beginPath();
+      this.ctx.moveTo(padding.left, sy);
+      this.ctx.lineTo(width - padding.right, sy);
+      this.ctx.stroke();
+    }
+
+    for (let i = 0; i <= 4; i++) {
+      const sx = padding.left + (i / 4) * graphWidth;
+      this.ctx.beginPath();
+      this.ctx.moveTo(sx, padding.top);
+      this.ctx.lineTo(sx, height - padding.bottom);
+      this.ctx.stroke();
+    }
+
+    // 2. Draw zero crossing lines
+    this.ctx.strokeStyle = axisColor;
+    this.ctx.lineWidth = 1.5;
+
+    if (yMin < 0 && yMax > 0) {
+      const yZero = getYScreen(0);
+      this.ctx.beginPath();
+      this.ctx.moveTo(padding.left, yZero);
+      this.ctx.lineTo(width - padding.right, yZero);
+      this.ctx.stroke();
+    }
+
+    if (xMin < 0 && xMax > 0) {
+      const xZero = getXScreen(0);
+      this.ctx.beginPath();
+      this.ctx.moveTo(xZero, padding.top);
+      this.ctx.lineTo(xZero, height - padding.bottom);
+      this.ctx.stroke();
+    }
+
+    // 3. Trailing orbit path
+    this.ctx.strokeStyle = '#a855f7';
+    this.ctx.lineWidth = 2.0;
+    this.ctx.beginPath();
+    windowPoints.forEach((pt, idx) => {
+      const vals = this.getChannelValues(pt, selectedElementId, presetName);
+      const sx = getXScreen(vals.valA);
+      const sy = getYScreen(vals.valB);
+      if (idx === 0) this.ctx.moveTo(sx, sy);
+      else this.ctx.lineTo(sx, sy);
+    });
+    this.ctx.stroke();
+
+    // 4. Current state dot
+    const latestPt = windowPoints[windowPoints.length - 1];
+    const latestVals = this.getChannelValues(latestPt, selectedElementId, presetName);
+    const sLastX = getXScreen(latestVals.valA);
+    const sLastY = getYScreen(latestVals.valB);
+
+    this.ctx.fillStyle = '#ef4444';
+    this.ctx.beginPath();
+    this.ctx.arc(sLastX, sLastY, 5, 0, 2 * Math.PI);
+    this.ctx.fill();
+
+    // 5. Draw Axis Labels
+    this.ctx.fillStyle = this.theme === 'dark' ? '#eee' : '#333';
+    this.ctx.font = 'bold 10px Outfit, sans-serif';
+    
+    this.ctx.textAlign = 'left';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(`${latestVals.labelB} (${latestVals.unitB})`, padding.left + 5, padding.top - 12);
+    
+    this.ctx.textAlign = 'right';
+    this.ctx.fillText(`${latestVals.labelA} (${latestVals.unitA})`, width - padding.right, height - padding.bottom - 12);
 
     this.ctx.restore();
   }
