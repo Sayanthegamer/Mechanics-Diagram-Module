@@ -19,8 +19,8 @@
 
 ### Circuits Solver Engine
 
-- [ ] **EM-07**: Solver engine computes dynamic loop equation values (currents, voltages) for resistor ($R$), capacitor ($C$), and inductor ($L$) networks.
-- [ ] **EM-08**: Solver supports interactive switch component clicks to open/close loops.
+- [x] **EM-07**: Solver engine computes dynamic loop equation values (currents, voltages) for resistor ($R$), capacitor ($C$), and inductor ($L$) networks.
+- [x] **EM-08**: Solver supports interactive switch component clicks to open/close loops.
 
 ### Oscilloscope Plots
 
@@ -44,8 +44,8 @@
 | EM-04 | Phase 1 | Complete |
 | EM-05 | Phase 2 | Complete |
 | EM-06 | Phase 2 | Complete |
-| EM-07 | Phase 3 | Pending |
-| EM-08 | Phase 4 | Pending |
+| EM-07 | Phase 8 | Complete |
+| EM-08 | Phase 9 | Complete |
 | EM-09 | Phase 5 | Pending |
 
 **Coverage:**

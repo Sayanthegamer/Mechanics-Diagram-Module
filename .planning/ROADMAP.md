@@ -95,7 +95,10 @@
   1. User can click components to edit values or click switches to toggle open/closed state.
   2. Canvas displays standard electrical schematics dynamically.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+- [x] 09-01-PLAN.md — Port drawing routines, voltage potential color mapping, and current animation dots
+- [x] 09-02-PLAN.md — Implement click/drag canvas interaction, selection highlights, and parameter bindings
 
 ### Phase 10: Oscilloscope Graph Integration & Verification
 
@@ -123,7 +126,7 @@
 | 6. Electrostatics | v5.0 | 2/2 | Complete    | 2026-06-10 |
 | 7. Lorentz Force | v5.0 | 2/2 | Complete   | 2026-06-10 |
 | 8. Circuit Engine | v5.0 | 2/2 | Complete   | 2026-06-10 |
-| 9. Schematic UI | v5.0 | 0/0 | Not started | - |
+| 9. Schematic UI | v5.0 | 2/2 | Complete | 2026-06-11 |
 | 10. Oscilloscope | v5.0 | 0/0 | Not started | - |
 
 ---
