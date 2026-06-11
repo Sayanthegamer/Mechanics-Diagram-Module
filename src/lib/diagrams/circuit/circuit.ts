@@ -1210,6 +1210,7 @@ export class Circuit implements IStamper {
         id: e.id,
         volts: Array.from(e.volts),
         current: e.getCurrent(),
+        voltageDiff: e.getVoltageDiff(),
         power: e.type === 'wire' ? 0 : -(e.volts[1] - e.volts[0]) * e.getCurrent(),
       })),
       converged: this.converged,
