@@ -1403,8 +1403,10 @@ function applyConfig(config: PhysicsConfig) {
     lastCircuitSwitchToggleTime = 0;
     
     graphCard.classList.remove('hidden');
-    selectGraphMode.classList.add('hidden');
-    graphTitle.innerText = 'Real-Time Graph: CIRCUIT NODE VOLTAGES';
+    selectGraphMode.classList.remove('hidden');
+    graphModule.mode = 'oscilloscope-yt';
+    selectGraphMode.value = 'oscilloscope-yt';
+    graphTitle.innerText = 'Real-Time Graph: OSCILLOSCOPE TIME SERIES (Y-T)';
   }
 
   // Generate controls UI
@@ -1438,7 +1440,13 @@ function updateTitles(config: PhysicsConfig) {
     graphTitle.innerText = `Real-Time Graph: ${graphModule.mode.replace(/-/g, ' ').toUpperCase()}`;
   } else if (config.type === 'circuit') {
     canvasTitle.innerText = 'Circuits Engine: Transient Solver';
-    graphTitle.innerText = 'Real-Time Graph: CIRCUIT NODE VOLTAGES';
+    if (graphModule.mode === 'oscilloscope-yt') {
+      graphTitle.innerText = 'Real-Time Graph: OSCILLOSCOPE TIME SERIES (Y-T)';
+    } else if (graphModule.mode === 'oscilloscope-xy') {
+      graphTitle.innerText = 'Real-Time Graph: OSCILLOSCOPE XY PHASE ORBIT';
+    } else {
+      graphTitle.innerText = 'Real-Time Graph: CIRCUIT NODE VOLTAGES';
+    }
   }
 }
 
@@ -2166,6 +2174,8 @@ function handleGraphModeChange() {
         "Adjust launch parameters and click 'Fire Particle' to observe Lorentz force deflections."
       );
     }
+  } else if (activeConfig.type === 'circuit') {
+    graphModule.drawCircuit(circuitHistory, circuitDiagram.selectedElementId, selectPreset.value);
   }
 }
 
