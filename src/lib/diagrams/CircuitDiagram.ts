@@ -51,6 +51,36 @@ export class CircuitDiagram {
   }
 
   /**
+   * Convert screen coordinates back to circuit coordinates.
+   */
+  public toGrid(sx: number, sy: number): { x: number; y: number } {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const activeCircuit = this.circuit;
+
+    if (activeCircuit && activeCircuit.elements.length > 0) {
+      for (const elm of activeCircuit.elements) {
+        minX = Math.min(minX, elm.x, elm.x2);
+        maxX = Math.max(maxX, elm.x, elm.x2);
+        minY = Math.min(minY, elm.y, elm.y2);
+        maxY = Math.max(maxY, elm.y, elm.y2);
+      }
+    } else {
+      minX = 0; maxX = 200; minY = 0; maxY = 100;
+    }
+
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+
+    const circuitScale = 2.0 * (this.pc.scale / 50);
+
+    return {
+      x: cx + (sx - this.pc.originX) / circuitScale,
+      y: cy + (sy - this.pc.originY) / circuitScale
+    };
+  }
+
+
+  /**
    * Map voltage potential to continuous gradient color representation.
    * D-02:
    * - Positive Potential (V > 0V): #ef4444 (bright red)
@@ -178,12 +208,38 @@ export class CircuitDiagram {
     hovered: boolean,
     zoom: number
   ): void {
-    if (selected || hovered) {
+    if (selected) {
       const p1 = this.toScreen(elm.x, elm.y);
       const p2 = this.toScreen(elm.x2, elm.y2);
       ctx.save();
-      // Use transparent indigo highlight
-      ctx.strokeStyle = selected ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.15)';
+      
+      // Draw glowing outline with indigo accent color #6366f1 (D-05)
+      ctx.strokeStyle = '#6366f1';
+      ctx.lineWidth = 8 * zoom;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = '#6366f1';
+      ctx.shadowBlur = 10 * zoom;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+      
+      // Draw dash ring/outline on top of the glow
+      ctx.strokeStyle = '#a5b4fc';
+      ctx.lineWidth = 1.5 * zoom;
+      ctx.setLineDash([4 * zoom, 4 * zoom]);
+      ctx.shadowBlur = 0; // reset shadow
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+      
+      ctx.restore();
+    } else if (hovered) {
+      const p1 = this.toScreen(elm.x, elm.y);
+      const p2 = this.toScreen(elm.x2, elm.y2);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(99, 102, 241, 0.15)';
       ctx.lineWidth = 12 * zoom;
       ctx.lineCap = 'round';
       ctx.beginPath();
